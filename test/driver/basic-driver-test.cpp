@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <cstring>
+#include <cstdio>
 
 #include "lib/driver/basic-driver.hpp"
 
@@ -57,3 +58,6 @@ TEST(BasicDriverTest, ReadMultple)
                     TEST_STRING));
     }
 }
+
+TEST(BasicDriverTest, TearDown)
+{ std::remove(TEST_PATH); }

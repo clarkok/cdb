@@ -183,6 +183,10 @@ BitmapAllocator::allocateBlocks(Length length, BlockIndex hint)
 
     BlockIndex ret;
 
+    while (_bitmaps.size() <= hint_section) {
+        appendSection();
+    }
+
     // no enough space in the hinting section
     if (_bitmaps[hint_section].count <= BLOCK_PER_SECTION - length) {
         if (allocateBlocksInSection(_bitmaps[hint_section], length, section_hint, ret)) {

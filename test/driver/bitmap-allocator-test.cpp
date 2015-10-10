@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory>
+#include <cstdio>
 
 #include "lib/driver/basic-driver.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
@@ -92,7 +93,7 @@ TEST(BitmapAllocatorTest, CanBeOpennedAgain)
     uut->reset();
 }
 
-TEST(BitmapIteratorTest, CanAllocatingWithHinting)
+TEST(BitmapAllocatorTest, CanAllocatingWithHinting)
 {
     std::unique_ptr<Driver> drv(new BasicDriver(TEST_PATH));
     std::unique_ptr<BlockAllocator> uut(new BitmapAllocator(drv.get(), 1));
@@ -115,3 +116,37 @@ TEST(BitmapIteratorTest, CanAllocatingWithHinting)
     }
     uut->freeBlock(8128);
 }
+
+TEST(BitmapAllocatorTest, HintAtNotExist)
+{
+    std::unique_ptr<Driver> drv(new BasicDriver(TEST_PATH));
+    std::unique_ptr<BlockAllocator> uut(new BitmapAllocator(drv.get(), 1));
+
+    for (int i = 32768; i < 32768 + 8160; ++i) {
+        EXPECT_EQ(i, uut->allocateBlock(32768));
+    }
+
+    for (int i = 32768 + 8161; i < 32768 + 8192; ++i) {
+        EXPECT_EQ(i, uut->allocateBlock(32768));
+    }
+}
+
+TEST(BitmapAllocatorTest, FindBeforeHint)
+{
+    std::unique_ptr<Driver> drv(new BasicDriver(TEST_PATH));
+    std::unique_ptr<BlockAllocator> uut(new BitmapAllocator(drv.get(), 1));
+
+    EXPECT_EQ(24576, uut->allocateBlock(32768));
+    uut->freeBlock(24576);
+
+    for (int i = 32768; i < 32768 + 8160; ++i) {
+        uut->freeBlock(i);
+    }
+
+    for (int i = 32768 + 8161; i < 32768 + 8192; ++i) {
+        uut->freeBlock(i);
+    }
+}
+
+TEST(BitmapAllocatorTest, TearDown)
+{ std::remove(TEST_PATH); }
