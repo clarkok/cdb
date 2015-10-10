@@ -32,11 +32,7 @@ using cdb::BlockIndex;
 
 BitmapAllocator::BitmapAllocator(Driver *drv, BlockIndex start_at)
     : BlockAllocator(drv, start_at), _count_block(Driver::BLOCK_SIZE)
-{ initialize(); }
-
-void
-BitmapAllocator::initialize()
-{
+{ 
     // read count block
     _drv->readBlock(_start_at, _count_block);
 
@@ -109,6 +105,8 @@ BitmapAllocator::reset()
 
     // reserve the count block
     reserve(_start_at);
+
+    flush();
 }
 
 void
@@ -145,11 +143,11 @@ BitmapAllocator::setBitmapOnRange(Bitmap &bitmap, BlockIndex offset, Length leng
 {
     assert(length + (offset % BLOCK_PER_UNIT) <= BLOCK_PER_UNIT);
 
-    OperatorUnit *unit_ptr = reinterpret_cast<OperatorUnit*>(bitmap.bitmap.content());
+    OperationUnit *unit_ptr = reinterpret_cast<OperationUnit*>(bitmap.bitmap.content());
     Length unit_index = offset / BLOCK_PER_UNIT;
     Length unit_offset = offset % BLOCK_PER_UNIT;
 
-    Length mask = (~((~(static_cast<OperatorUnit>(0))) << length)) << unit_offset;
+    Length mask = (~((~(static_cast<OperationUnit>(0))) << length)) << unit_offset;
     unit_ptr[unit_index] |= mask;
     bitmap.dirty = true;
     bitmap.count += length;
@@ -162,11 +160,11 @@ BitmapAllocator::setBitmapOff(Bitmap &bitmap, BlockIndex offset)
 void
 BitmapAllocator::setBitmapOffRange(Bitmap &bitmap, BlockIndex offset, Length length)
 {
-    OperatorUnit *unit_ptr = reinterpret_cast<OperatorUnit*>(bitmap.bitmap.content());
+    OperationUnit *unit_ptr = reinterpret_cast<OperationUnit*>(bitmap.bitmap.content());
     Length unit_index = offset / BLOCK_PER_UNIT;
     Length unit_offset = offset % BLOCK_PER_UNIT;
 
-    Length mask = ~((~((~(static_cast<OperatorUnit>(0))) << length)) << unit_offset);
+    Length mask = ~((~((~(static_cast<OperationUnit>(0))) << length)) << unit_offset);
     unit_ptr[unit_index] &= mask;
     bitmap.dirty = true;
     bitmap.count -= length;
@@ -231,13 +229,13 @@ BitmapAllocator::allocateBlocksInSection(
     )
 {
     BlockIndex hint_unit = section_hint / BLOCK_PER_UNIT;
-    OperatorUnit *unit_start = reinterpret_cast<OperatorUnit*>(bitmap.bitmap.content());
-    OperatorUnit *unit_limit = unit_start + MAX_UNIT_COUNT;
-    OperatorUnit *unit_hint_ptr = unit_start + hint_unit;
+    OperationUnit *unit_start = reinterpret_cast<OperationUnit*>(bitmap.bitmap.content());
+    OperationUnit *unit_limit = unit_start + MAX_UNIT_COUNT;
+    OperationUnit *unit_hint_ptr = unit_start + hint_unit;
 
     // find begin at hinting point
     for (
-            OperatorUnit *unit_ptr = unit_hint_ptr;
+            OperationUnit *unit_ptr = unit_hint_ptr;
             unit_ptr != unit_limit;
             ++unit_ptr
     ) {
@@ -253,7 +251,7 @@ BitmapAllocator::allocateBlocksInSection(
     // find from start if hinted
     if (section_hint) {
         for (
-                OperatorUnit *unit_ptr = unit_hint_ptr;
+                OperationUnit *unit_ptr = unit_hint_ptr;
                 unit_ptr >= unit_start;
                 --unit_ptr
         ) {

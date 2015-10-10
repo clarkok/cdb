@@ -8,14 +8,9 @@ namespace cdb {
     typedef std::int8_t     Byte;
     typedef std::uint32_t   Length;
 
-    /**
-     * @struct BufferImpl
-     * the defination of this struct is hidden
-     */
-    struct BufferImpl;
+    struct BufferImpl;  /** the defination of this struct is hidden */
 
     /**
-     * @class Buffer
      * this class hold strong reference of a piece of memory
      */
     class Buffer

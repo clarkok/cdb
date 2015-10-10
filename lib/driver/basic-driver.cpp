@@ -10,6 +10,7 @@ using cdb::Length;
 BasicDriver::BasicDriver(const char *path)
     : _fd(std::fopen(path, "r+"))
 {
+    // if file is not openned correctily, open it with another mode
     if (!_fd) {
         _fd = std::fopen(path, "w+");
     }
