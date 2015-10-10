@@ -148,5 +148,16 @@ TEST(BitmapAllocatorTest, FindBeforeHint)
     }
 }
 
+TEST(BitmapAllocatorTest, AnotherStartAt)
+{
+    std::unique_ptr<Driver> drv(new BasicDriver(TEST_PATH));
+    std::unique_ptr<BlockAllocator> uut(new BitmapAllocator(drv.get(), 0));
+    uut->reset();
+
+    EXPECT_EQ(1, uut->allocateBlock());
+
+    uut->freeBlock(1);
+}
+
 TEST(BitmapAllocatorTest, TearDown)
 { std::remove(TEST_PATH); }
