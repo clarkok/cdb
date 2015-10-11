@@ -4,6 +4,21 @@ using namespace cdb;
 
 using cdb::BlockIndex;
 
+Block::Block(const Block &block)
+    : Block(std::move(block._owner->aquire(block._index)))
+{ }
+
+Block &
+Block::operator = (const Block &block)
+{ return (*this = std::move(block._owner->aquire(block._index))); }
+
+Block::~Block()
+{
+    if (_index) {
+        _owner->release(_index);
+    }
+}
+
 DriverAccesser::DriverAccesser(Driver *drv, BlockAllocator *allocator)
     : _drv(drv), _allocator(allocator)
 { }
