@@ -80,7 +80,7 @@ namespace cdb {
             : ConstSlice(buffer.content(), buffer.length())
         { }
 
-        ConstSlice(Slice &slice)
+        ConstSlice(const Slice &slice)
             : ConstSlice(slice.content(), slice.length())
         { }
 
