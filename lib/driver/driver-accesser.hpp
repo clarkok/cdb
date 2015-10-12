@@ -25,9 +25,17 @@ namespace cdb {
             : _owner(block._owner), _index(block._index), _slice(block._slice)
         { block._index = 0; }
 
+        Block &operator = (Block &&block)
+        {
+            _owner = block._owner;
+            _index = block._index;
+            _slice = block._slice;
+            block._index = 0;
+            return *this;
+        }
+
         // copying means aquire again
         Block(const Block &block);
-
         Block &operator = (const Block &block);
 
         ~Block();
@@ -78,7 +86,8 @@ namespace cdb {
     protected:
         Driver *_drv;
         BlockAllocator *_allocator;
-        virtual void release(BlockIndex block);
+
+        virtual void release(BlockIndex block) = 0;
         virtual Slice access(BlockIndex index) = 0;
 
         friend class Block;

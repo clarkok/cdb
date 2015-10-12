@@ -10,7 +10,7 @@ Block::Block(const Block &block)
 
 Block &
 Block::operator = (const Block &block)
-{ return (*this = std::move(block._owner->aquire(block._index))); }
+{ return this->operator=(std::move(block._owner->aquire(block._index))); }
 
 Block::~Block()
 {
