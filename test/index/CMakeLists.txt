@@ -1,0 +1,3 @@
+set(INDEX_TEST_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/btree-test.cpp
+    PARENT_SCOPE)

@@ -37,6 +37,16 @@ namespace cdb {
 
             ~Iterator() = default;
 
+            inline Iterator &
+            operator = (Iterator &&iter)
+            {
+                _owner = iter._owner;
+                _block = std::move(iter._block);
+                _offset = iter._offset;
+
+                return *this;
+            }
+
             inline bool
             operator == (const Iterator &iter)
             { 
@@ -69,10 +79,11 @@ namespace cdb {
 
         DriverAccesser *_accesser;
         Comparator _less;
-        Comparator _equal;
 
-        BlockIndex _root_index;
+        // _root's before & end record to first child and last leaf
         Block _root;
+        BlockIndex _first_leaf;
+        BlockIndex _last_leaf;
 
         Length _key_size;
         Length _value_size;
@@ -87,17 +98,17 @@ namespace cdb {
         inline LeafMark *getMarkFromLeaf(Slice leaf);
         inline NodeHeader *getHeaderFromNode(Slice node);
 
-        inline Byte *getFirstEntryInNode(Slice node);
+        inline Byte *getFirstEntryInNode(Block &node);
+        inline Byte *getLimitEntryInNode(Block &node);
         inline Byte *nextEntryInNode(Byte *entry);
+        inline Byte *prevEntryInNode(Byte *entry);
+        inline Byte *getEntryInNodeByIndex(Block &node, Length index);
 
-        inline Byte *getFirstEntryInLeaf(Slice leaf);
+        inline Byte *getFirstEntryInLeaf(Block &leaf);
+        inline Byte *getLimitEntryInLeaf(Block &leaf);
         inline Byte *nextEntryInLeaf(Byte *entry);
-
-        inline BlockIndex getIndexFromNodeEntry(Byte *entry);
-        inline Slice      getValueFromLeafEntry(Byte *entry);
-
-        inline Byte* getKeyFromNodeEntry(Byte *entry);
-        inline Byte* getKeyFromLeafEntry(Byte *entry);
+        inline Byte *prevEntryInLeaf(Byte *entry);
+        inline Byte *getEntryInLeafByIndex(Block &node, Length index);
 
         inline BlockIndex findInNode(Block &node, ConstSlice key);
         inline Iterator   findInLeaf(Block &leaf, ConstSlice key);
@@ -105,29 +116,49 @@ namespace cdb {
         inline void keepTracingToLeaf(ConstSlice key, std::stack<Block> &path);
 
         /**
-         * @return new key to split
+         * @return new block
          */
-        inline Slice splitLeaf(Slice leaf, BlockIndex &new_index, ConstSlice key, ConstSlice value);
-        inline Slice splitNode(Slice node, BlockIndex &new_index, ConstSlice key, BlockIndex index);
+        inline Block splitLeaf(Block &old_leaf, Length split_offset);
+        inline Block splitNode(Block &old_node, Length split_offset);
 
-        inline void insertInLeaf(Slice leaf, ConstSlice key, ConstSlice value);
-        inline void insertInNode(Slice node, ConstSlice key, BlockIndex index);
+        inline Iterator insertInLeaf(Block &leaf, ConstSlice key);
+        inline void     insertInNode(Block &node, ConstSlice key, BlockIndex index);
 
-        inline BlockIndex newRoot(ConstSlice split_key, BlockIndex before, BlockIndex after);
+        inline Block newRoot(ConstSlice split_key, BlockIndex before, BlockIndex after);
+
+        inline BlockIndex *getIndexFromNodeEntry(Byte *entry);
+
+        inline Slice      getValueFromLeafEntry(Byte *entry)
+        { return Slice(entry + _key_size, _value_size); }
+
+        inline Byte* getKeyFromNodeEntry(Byte *entry)
+        { return entry; }
+
+        inline Byte* getKeyFromLeafEntry(Byte *entry)
+        { return entry; }
+
+        inline Length getFirstEntryOffset();
+        inline Length getLimitEntryOffset(Block &leaf);
 
     public:
         BTree(
                 DriverAccesser *accesser,
                 Comparator less,
-                Comparator equal,
                 BlockIndex root_index,
                 Length key_size,
                 Length value_size
             );
+
         ~BTree();
 
+        BlockIndex getRootIndex() const
+        { return _root.index(); }
+
         Iterator find(ConstSlice key);
-        Iterator insert(ConstSlice key, ConstSlice value);
+        Iterator insert(ConstSlice key);
+
+        Iterator begin();
+        Iterator end();
 
         void reset();
     };
