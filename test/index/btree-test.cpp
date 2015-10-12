@@ -10,7 +10,7 @@
 using namespace cdb;
 
 static const char TEST_PATH[] = "/tmp/btree-test.tmp";
-static const int TEST_NUMBER = 1000;
+static const int TEST_NUMBER = 512;
 
 class BTreeTest : public ::testing::Test
 {
@@ -72,6 +72,22 @@ TEST_F(BTreeTest, InsertMultiple)
     }
 
     for (int i = 1; i < TEST_NUMBER; i += 2) {
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+        auto iter = uut->find(key);
+        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
+    }
+}
+
+TEST_F(BTreeTest, InsertInRevertOrder)
+{
+    for (int i = TEST_NUMBER - 1; i >= 0; --i) {
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+        auto iter = uut->insert(key);
+        *reinterpret_cast<int*>(iter.getValue().content()) = i;
+    }
+
+    for (int i = 0; i < TEST_NUMBER; ++i) {
         Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
         auto iter = uut->find(key);
         EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
