@@ -25,14 +25,7 @@ namespace cdb {
             : _owner(block._owner), _index(block._index), _slice(block._slice)
         { block._index = 0; }
 
-        Block &operator = (Block &&block)
-        {
-            _owner = block._owner;
-            _index = block._index;
-            _slice = block._slice;
-            block._index = 0;
-            return *this;
-        }
+        Block &operator = (Block &&block);
 
         // copying means aquire again
         Block(const Block &block);
