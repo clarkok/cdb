@@ -55,7 +55,7 @@ TEST_F(BTreeTest, Insert)
 
     for (int i = 0; i < TEST_NUMBER; ++i) {
         Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
-        auto iter = uut->find(key);
+        auto iter = uut->lowerBound(key);
         EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
     }
@@ -73,7 +73,7 @@ TEST_F(BTreeTest, InsertMultiple)
 
     for (int i = 1; i < TEST_NUMBER; i += 2) {
         Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
-        auto iter = uut->find(key);
+        auto iter = uut->lowerBound(key);
         EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
     }
@@ -89,8 +89,71 @@ TEST_F(BTreeTest, InsertInRevertOrder)
 
     for (int i = 0; i < TEST_NUMBER; ++i) {
         Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
-        auto iter = uut->find(key);
+        auto iter = uut->lowerBound(key);
         EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
+    }
+}
+
+TEST_F(BTreeTest, LowerBoundButNotFound)
+{
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        if (i % 16 == 0) {
+            Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+            auto iter = uut->insert(key);
+            *reinterpret_cast<int*>(iter.getValue().content()) = i;
+        }
+    }
+
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+        auto iter = uut->lowerBound(key);
+
+        EXPECT_EQ(((i + 15) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(((i + 15) / 16) * 16, *reinterpret_cast<const int*>(iter.getValue().content()));
+    }
+}
+
+TEST_F(BTreeTest, UpperBoundButNotFound)
+{
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        if (i % 16 == 0) {
+            Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+            auto iter = uut->insert(key);
+            *reinterpret_cast<int*>(iter.getValue().content()) = i;
+        }
+    }
+
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+        auto iter = uut->upperBound(key);
+
+        EXPECT_EQ(((i + 16) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(((i + 16) / 16) * 16, *reinterpret_cast<const int*>(iter.getValue().content()));
+    }
+}
+
+TEST_F(BTreeTest, ForEach)
+{
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        int k = (i / 16) * 16;
+        Slice key(reinterpret_cast<Byte*>(&k), sizeof(k));
+        auto iter = uut->insert(key);
+        *reinterpret_cast<int*>(iter.getValue().content()) = i;
+    }
+
+    for (int i = 0; i < TEST_NUMBER; i += 16) {
+        int count = 0;
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+
+        uut->forEach(
+            uut->lowerBound(key),
+            uut->upperBound(key),
+            [&count](const BTree::Iterator &) -> void {
+                ++count;
+            }
+        );
+
+        EXPECT_EQ(16, count) << "i = " << i;
     }
 }

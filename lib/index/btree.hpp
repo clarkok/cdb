@@ -3,6 +3,7 @@
 
 #include <stack>
 #include <iterator>
+#include <functional>
 
 #include "lib/driver/driver-accesser.hpp"
 
@@ -59,9 +60,6 @@ namespace cdb {
             operator != (const Iterator &iter)
             { return !this->operator==(iter); }
 
-            Iterator &inc();
-            Iterator &dec();
-
             inline const Byte *
             getKey() const
             { return _owner->getKeyFromLeafEntry(getEntry()); }
@@ -70,7 +68,8 @@ namespace cdb {
             { return _owner->getValueFromLeafEntry(getEntry()); }
         };
 
-        typedef bool (*Comparator)(const Byte *, const Byte *);
+        typedef std::function<bool(const Byte *, const Byte *)> Comparator;
+        typedef std::function<void(const Iterator &)> Operator;
 
     private:
         struct NodeHeader;
@@ -110,10 +109,14 @@ namespace cdb {
         inline Byte *prevEntryInLeaf(Byte *entry);
         inline Byte *getEntryInLeafByIndex(Block &node, Length index);
 
-        inline BlockIndex findInNode(Block &node, ConstSlice key);
-        inline Iterator   findInLeaf(Block &leaf, ConstSlice key);
+        inline BlockIndex lowerBoundInNode(Block &node, ConstSlice key);
+        inline Iterator   lowerBoundInLeaf(Block &leaf, ConstSlice key);
 
-        inline void keepTracingToLeaf(ConstSlice key, std::stack<Block> &path);
+        inline BlockIndex upperBoundInNode(Block &node, ConstSlice key);
+        inline Iterator   upperBoundInLeaf(Block &leaf, ConstSlice key);
+
+        inline void leafLowerBound(ConstSlice key, std::stack<Block> &path);
+        inline void leafUpperBound(ConstSlice key, std::stack<Block> &path);
 
         /**
          * @return new block
@@ -124,7 +127,7 @@ namespace cdb {
         inline Iterator insertInLeaf(Block &leaf, ConstSlice key);
         inline void     insertInNode(Block &node, ConstSlice key, BlockIndex index);
 
-        inline Block newRoot(ConstSlice split_key, BlockIndex before, BlockIndex after);
+        inline Block newRoot(ConstSlice split_key, Block &before, Block &after);
 
         inline BlockIndex *getIndexFromNodeEntry(Byte *entry);
 
@@ -140,6 +143,9 @@ namespace cdb {
         inline Length getFirstEntryOffset();
         inline Length getLimitEntryOffset(Block &leaf);
 
+        inline Iterator nextIterator(Iterator iter);
+        inline Iterator prevIterator(Iterator iter);
+
     public:
         BTree(
                 DriverAccesser *accesser,
@@ -154,11 +160,21 @@ namespace cdb {
         BlockIndex getRootIndex() const
         { return _root.index(); }
 
-        Iterator find(ConstSlice key);
+        Iterator lowerBound(ConstSlice key);
+        Iterator upperBound(ConstSlice key);
         Iterator insert(ConstSlice key);
 
         Iterator begin();
         Iterator end();
+
+        inline void forEach(Operator op)
+        { forEach(begin(), end(), op); }
+
+        inline void forEachReverse(Operator op)
+        { forEachReverse(begin(), end(), op); }
+
+        void forEach(Iterator b, Iterator e, Operator op);
+        void forEachReverse(Iterator b, Iterator e, Operator op);
 
         void reset();
     };

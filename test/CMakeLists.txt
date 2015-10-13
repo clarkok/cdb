@@ -11,6 +11,8 @@ add_subdirectory(utils)
 add_subdirectory(driver)
 add_subdirectory(index)
 
+find_library(profiler profiler /usr/lib)
+
 add_executable(test-main test-main.cpp ${UTILS_TEST_SRCS} ${DRIVER_TEST_SRCS} ${INDEX_TEST_SRCS})
-target_link_libraries(test-main gtest pthread utils driver index)
+target_link_libraries(test-main gtest pthread utils driver index profiler)
 add_test(MainTest test-main)
