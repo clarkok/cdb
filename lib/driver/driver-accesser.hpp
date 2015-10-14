@@ -43,31 +43,31 @@ namespace cdb {
 
         inline Length
         length() const
-        { return _slice.length(); }
+        { return slice().length(); }
 
         inline const Byte*
         content() const
-        { return _slice.content(); }
+        { return slice().content(); }
 
         inline Byte*
         content()
-        { return _slice.content(); }
+        { return slice().content(); }
 
         inline const Byte*
         cbegin() const
-        { return _slice.cbegin(); }
+        { return slice().cbegin(); }
 
         inline const Byte*
         cend() const
-        { return _slice.cend(); }
+        { return slice().cend(); }
 
         inline Byte*
         begin()
-        { return _slice.begin(); }
+        { return slice().begin(); }
 
         inline Byte*
         end()
-        { return _slice.end(); }
+        { return slice().end(); }
 
         inline
         operator Slice()

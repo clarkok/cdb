@@ -10,11 +10,9 @@ namespace cdb {
     {
         bool node_is_leaf : 1;
         unsigned int node_length : 7;
-        unsigned int entry_count : 12;
-        unsigned int index_in_parent : 12;
+        unsigned int entry_count : 24;
         BlockIndex prev;
         BlockIndex next;
-        BlockIndex parent;
     };
 
     struct BTree::NodeMark
@@ -32,12 +30,14 @@ namespace cdb {
 BTree::BTree(
         DriverAccesser *accesser,
         Comparator less,
+        Comparator equal,
         BlockIndex root_index,
         Length key_size,
         Length value_size
     )
     : _accesser(accesser),
       _less(less),
+      _equal(equal),
       _root(accesser->aquire(root_index)),
       _key_size(key_size),
       _value_size(value_size)
@@ -84,10 +84,8 @@ BTree::reset()
         true,   // node_is_leaf
         1,      // node_length
         0,      // entry_count
-        0,      // index_in_parent
         0,      // prev
-        0,      // next
-        0       // parent
+        0       // next
     };
 
     _first_leaf = _last_leaf = _root.index();
@@ -152,36 +150,26 @@ BTree::prevIterator(Iterator iter)
 void
 BTree::leafLowerBound(ConstSlice key, std::stack<Block> &path)
 {
-    BlockIndex parent = 0;
-    BlockIndex index_in_parent = 0;
     path.push(_root);
 
     auto *header = getHeaderFromNode(path.top());
 
     while (!header->node_is_leaf) {
-        header->parent = parent;
-        header->index_in_parent = index_in_parent;
-        path.push(_accesser->aquire(lowerBoundInNode(path.top(), key, index_in_parent)));
+        path.push(_accesser->aquire(lowerBoundInNode(path.top(), key)));
         header = getHeaderFromNode(path.top());
-        parent = path.top().index();
     }
 }
 
 void
 BTree::leafUpperBound(ConstSlice key, std::stack<Block> &path)
 {
-    BlockIndex parent = 0;
-    BlockIndex index_in_parent = 0;
     path.push(_root);
 
     auto *header = getHeaderFromNode(path.top());
 
     while (!header->node_is_leaf) {
-        header->parent = parent;
-        header->index_in_parent = index_in_parent;
-        path.push(_accesser->aquire(upperBoundInNode(path.top(), key, index_in_parent)));
+        path.push(_accesser->aquire(upperBoundInNode(path.top(), key)));
         header = getHeaderFromNode(path.top());
-        parent = path.top().index();
     }
 }
 
@@ -190,7 +178,7 @@ BTree::getHeaderFromNode(Slice node)
 { return reinterpret_cast<NodeHeader*>(node.content()); }
 
 BlockIndex
-BTree::lowerBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent)
+BTree::lowerBoundInNode(Block &node, ConstSlice key)
 {
     auto *entry_limit = getLimitEntryInNode(node);
     auto *entry = getFirstEntryInNode(node);
@@ -199,18 +187,16 @@ BTree::lowerBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent
 
     for (; entry < entry_limit; entry = nextEntryInNode(entry)) {
         if (_less(key.content(), getKeyFromNodeEntry(entry))) {
-            index_in_parent = (entry - getFirstEntryInNode(node)) / nodeEntrySize() - 1;
             return ret;
         }
         ret = *getIndexFromNodeEntry(entry);
     }
 
-    index_in_parent = (entry - getFirstEntryInNode(node)) / nodeEntrySize() - 1;
     return ret;
 }
 
 BlockIndex
-BTree::upperBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent)
+BTree::upperBoundInNode(Block &node, ConstSlice key)
 {
     auto *entry_start = getFirstEntryInNode(node);
 
@@ -220,12 +206,10 @@ BTree::upperBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent
             entry = prevEntryInNode(entry)
     ) {
         if (!_less(key.content(), getKeyFromNodeEntry(entry))) {
-            index_in_parent = (entry - entry_start) / nodeEntrySize();
             return *getIndexFromNodeEntry(entry);
         }
     }
 
-    index_in_parent = 0x0FFF;
     return getMarkFromNode(node)->before;
 }
 
@@ -236,6 +220,10 @@ BTree::getMarkFromNode(Slice node)
 Byte *
 BTree::getFirstEntryInNode(Block &node)
 { return node.content() + sizeof(NodeMark); }
+
+Byte *
+BTree::getLastEntryInNode(Block &node)
+{ return prevEntryInNode(getLimitEntryInNode(node)); }
 
 Byte *
 BTree::getLimitEntryInNode(Block &node)
@@ -256,21 +244,6 @@ BTree::getIndexFromNodeEntry(Byte *entry)
 BTree::Iterator
 BTree::lowerBoundInLeaf(Block &leaf, ConstSlice key)
 {
-    // to check if there are some of entry same with key in prev leaf
-    if (leaf.index() != _first_leaf) {
-        auto prev_leaf = _accesser->aquire(getHeaderFromNode(leaf)->prev);
-        auto *last_entry = prevEntryInLeaf(getLimitEntryInLeaf(prev_leaf));
-        if (!_less(getKeyFromLeafEntry(last_entry), key.content())) {
-            auto *entry = prevEntryInLeaf(last_entry);
-            while (!_less(getKeyFromLeafEntry(entry), key.content())) {
-                last_entry = entry;
-                entry = prevEntryInLeaf(entry);
-            }
-            auto offset = last_entry - prev_leaf.begin();
-            return Iterator(this, std::move(prev_leaf), offset);
-        }
-    }
-
     auto *entry_limit = getLimitEntryInLeaf(leaf);
     auto *entry = getFirstEntryInLeaf(leaf);
 
@@ -356,6 +329,7 @@ BTree::insert(ConstSlice key)
             split_offset = getHeaderFromNode(path.top())->entry_count / 2;
             new_node = splitNode(path.top(), split_offset);
 
+            key = split_key;
             split_key = ConstSlice(
                     getKeyFromNodeEntry(getFirstEntryInNode(new_node)),
                     _key_size
@@ -418,6 +392,11 @@ BTree::splitLeaf(Block &old_leaf, Length split_offset)
     if (new_header->next == 0) {
         _last_leaf = new_leaf.index();
     }
+    else {
+        Block new_next_leaf = _accesser->aquire(new_header->next);
+        auto *new_next_header = getHeaderFromNode(new_next_leaf);
+        new_next_header->prev = new_leaf.index();
+    }
 
     return new_leaf;
 }
@@ -445,7 +424,14 @@ BTree::splitNode(Block &old_node, Length split_offset)
     getMarkFromNode(new_node)->before   = old_node.index();
 
     old_header->entry_count    -= new_header->entry_count;
-    old_header->prev            = new_node.index();
+    old_header->next            = new_node.index();
+
+    if (new_header->next) {
+        Block new_next_node = _accesser->aquire(new_header->next);
+        auto *new_next_header = getHeaderFromNode(new_next_node);
+
+        new_next_header->prev = new_node.index();
+    }
 
     return new_node;
 }
@@ -469,6 +455,12 @@ BTree::insertInLeaf(Block &leaf, ConstSlice key)
         }
     }
 
+    if (current >= entry_start && _equal(getKeyFromLeafEntry(current), key.content())) {
+        return Iterator(this, leaf, current - leaf.begin());
+    }
+
+    ++header->entry_count;
+
     std::copy_backward(
             insert_point,
             getLimitEntryInLeaf(leaf),
@@ -480,8 +472,6 @@ BTree::insertInLeaf(Block &leaf, ConstSlice key)
             key.cend(),
             getKeyFromLeafEntry(insert_point)
         );
-
-    ++header->entry_count;
 
     return Iterator(this, leaf, insert_point - leaf.begin());
 }
@@ -590,8 +580,261 @@ BTree::forEachReverse(Iterator b, Iterator e, Operator op)
     } while (b != e);
 }
 
-BTree::Iterator
-BTree::erase(Iterator pos)
+void
+BTree::erase(ConstSlice key)
 {
-    // TODO
+    assert(key.length() >= _key_size);
+
+    Buffer removal_key(key.cbegin(), key.cend());
+
+    std::stack<Block> path;
+    leafLowerBound(key, path);
+
+    Block leaf = std::move(path.top()); path.pop();
+    auto *header = getHeaderFromNode(leaf);
+    eraseInLeaf(leaf, key);
+
+    if (leaf.index() == _root.index()) {
+        return;
+    }
+
+    if (header->entry_count) {
+        Block &parent = path.top();
+        auto *parent_last_entry = getLastEntryInNode(parent);
+        auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
+
+        updateKey(path.top(), getKeyFromLeafEntry(getFirstEntryInLeaf(leaf)), leaf.index());
+
+        if (*parent_last_index == leaf.index()) {
+            return;
+        }
+
+        Block next_leaf = _accesser->aquire(header->next);
+        auto *next_header = getHeaderFromNode(next_leaf);
+
+        if (next_header->entry_count + header->entry_count > maximumEntryPerLeaf()) {
+            return;
+        }
+
+        std::copy(
+                getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)),
+                getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)) + _key_size,
+                removal_key.begin()
+            );
+
+        mergeLeaf(leaf, next_leaf);
+
+        _accesser->freeBlock(next_leaf.index());
+    }
+    else {
+        updateLinkBeforeFreeLeaf(leaf);
+        _accesser->freeBlock(leaf.index());
+    }
+
+    while (true) {
+        Block node = std::move(path.top()); path.pop();
+        auto *header = getHeaderFromNode(node);
+        eraseInNode(node, removal_key);
+
+        if (node.index() == _root.index()) {
+            if (header->entry_count == 0) {
+                _accesser->freeBlock(_root.index());
+                _root = _accesser->aquire(getMarkFromNode(node)->before);
+                return;
+            }
+            return;
+        }
+
+        if (header->entry_count) {
+            Block &parent = path.top();
+            auto *parent_last_entry = getLastEntryInNode(parent);
+            auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
+
+            updateKey(path.top(), getKeyFromNodeEntry(getFirstEntryInNode(node)), node.index());
+
+            if (*parent_last_index == node.index()) {
+                return;
+            }
+
+            Block next_node = _accesser->aquire(header->next);
+            auto *next_header = getHeaderFromNode(next_node);
+
+            if (next_header->entry_count + header->entry_count > maximumEntryPerNode()) {
+                return;
+            }
+
+            std::copy(
+                    removal_key.begin(),
+                    removal_key.end(),
+                    getKeyFromLeafEntry(getFirstEntryInNode(next_node))
+                );
+
+            mergeNode(node, next_node);
+
+            _accesser->freeBlock(next_node.index());
+        }
+        else {
+            updateLinkBeforeFreeNode(node);
+            _accesser->freeBlock(node.index());
+        }
+    }
+}
+
+void
+BTree::eraseInLeaf(Block &leaf, ConstSlice key)
+{
+    auto *entry_limit = getLimitEntryInLeaf(leaf);
+    auto entry = getFirstEntryInLeaf(leaf);
+
+    for (;
+            entry < entry_limit;
+            entry = nextEntryInLeaf(entry)
+    ) {
+        if (!_less(getKeyFromLeafEntry(entry), key.content())) {
+            break;
+        }
+    }
+
+    if (!_equal(getKeyFromLeafEntry(entry), key.content())) {
+        // key not found
+        return;
+    }
+
+    auto *header = getHeaderFromNode(leaf);
+    header->entry_count--;
+
+    std::copy(
+            nextEntryInLeaf(entry),
+            entry_limit,
+            entry
+        );
+}
+
+void
+BTree::eraseInNode(Block &node, ConstSlice key)
+{
+    auto *entry_limit = getLimitEntryInNode(node);
+    auto entry = getFirstEntryInNode(node);
+
+    for (;
+            entry < entry_limit;
+            entry = nextEntryInNode(entry)
+    ) {
+        if (!_less(getKeyFromNodeEntry(entry), key.content())) {
+            break;
+        }
+    }
+
+    auto *header = getHeaderFromNode(node);
+
+    assert(
+            _equal(getKeyFromNodeEntry(entry), key.content()) ||
+            header->prev == 0
+        );
+
+    if (!_equal(getKeyFromNodeEntry(entry), key.content()) && header->prev == 0) {
+        // remove before
+        assert(entry == getFirstEntryInNode(node));
+        getMarkFromNode(node)->before = *getIndexFromNodeEntry(entry);
+    }
+
+    header->entry_count--;
+
+    std::copy(
+            nextEntryInNode(entry),
+            entry_limit,
+            entry
+        );
+}
+
+void
+BTree::mergeLeaf(Block &leaf, Block &next_leaf)
+{
+    auto *header = getHeaderFromNode(leaf);
+    auto *next_header = getHeaderFromNode(next_leaf);
+
+    header->entry_count += next_header->entry_count;
+
+    std::copy(
+            getFirstEntryInLeaf(next_leaf),
+            getLimitEntryInLeaf(next_leaf),
+            getLimitEntryInLeaf(leaf)
+        );
+
+    header->next = next_header->next;
+    if (header->next) {
+        Block new_next_leaf = _accesser->aquire(next_header->next);
+        getHeaderFromNode(new_next_leaf)->prev = leaf.index();
+    }
+    else {
+        _last_leaf = leaf.index();
+    }
+}
+
+void
+BTree::mergeNode(Block &node, Block &next_node)
+{
+    auto *header = getHeaderFromNode(node);
+    auto *next_header = getHeaderFromNode(next_node);
+
+    header->entry_count += next_header->entry_count;
+
+    std::copy(
+            getFirstEntryInNode(next_node),
+            getLimitEntryInNode(next_node),
+            getLimitEntryInNode(node)
+        );
+
+    header->next = next_header->next;
+    if (header->next) {
+        Block new_next_node = _accesser->aquire(next_header->next);
+        getHeaderFromNode(new_next_node)->prev = node.index();
+    }
+}
+
+void
+BTree::updateKey(Block &node, Byte *new_key, BlockIndex index)
+{
+    auto entry_limit = getLimitEntryInNode(node);
+    for (
+            auto entry = getFirstEntryInNode(node);
+            entry < entry_limit;
+            entry = nextEntryInNode(entry)
+    ) {
+        if (index == *getIndexFromNodeEntry(entry)) {
+            std::copy(
+                    getKeyFromNodeEntry(entry),
+                    getKeyFromNodeEntry(entry) + _key_size,
+                    new_key
+                );
+        }
+    }
+}
+
+void
+BTree::updateLinkBeforeFreeLeaf(Block &leaf)
+{
+    auto *header = getHeaderFromNode(leaf);
+    if (header->prev) {
+        Block prev_leaf = _accesser->aquire(header->prev);
+        getHeaderFromNode(prev_leaf)->next = header->next;
+    }
+    if (header->next) {
+        Block next_leaf = _accesser->aquire(header->next);
+        getHeaderFromNode(next_leaf)->next = header->prev;
+    }
+}
+
+void
+BTree::updateLinkBeforeFreeNode(Block &node)
+{
+    auto *header = getHeaderFromNode(node);
+    if (header->prev) {
+        Block prev_node = _accesser->aquire(header->prev);
+        getHeaderFromNode(prev_node)->next = header->next;
+    }
+    if (header->next) {
+        Block next_node = _accesser->aquire(header->next);
+        getHeaderFromNode(next_node)->next = header->prev;
+    }
 }

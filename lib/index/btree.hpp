@@ -1,6 +1,8 @@
 #ifndef _DB_INDEX_BTREE_H_
 #define _DB_INDEX_BTREE_H_
 
+#include <gtest/gtest_prod.h>
+
 #include <stack>
 #include <iterator>
 #include <functional>
@@ -78,6 +80,7 @@ namespace cdb {
 
         DriverAccesser *_accesser;
         Comparator _less;
+        Comparator _equal;
 
         // _root's before & end record to first child and last leaf
         Block _root;
@@ -102,6 +105,7 @@ namespace cdb {
         inline Byte *nextEntryInNode(Byte *entry);
         inline Byte *prevEntryInNode(Byte *entry);
         inline Byte *getEntryInNodeByIndex(Block &node, Length index);
+        inline Byte *getLastEntryInNode(Block &node);
 
         inline Byte *getFirstEntryInLeaf(Block &leaf);
         inline Byte *getLimitEntryInLeaf(Block &leaf);
@@ -109,10 +113,10 @@ namespace cdb {
         inline Byte *prevEntryInLeaf(Byte *entry);
         inline Byte *getEntryInLeafByIndex(Block &node, Length index);
 
-        inline BlockIndex lowerBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent);
+        inline BlockIndex lowerBoundInNode(Block &node, ConstSlice key);
         inline Iterator   lowerBoundInLeaf(Block &leaf, ConstSlice key);
 
-        inline BlockIndex upperBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent);
+        inline BlockIndex upperBoundInNode(Block &node, ConstSlice key);
         inline Iterator   upperBoundInLeaf(Block &leaf, ConstSlice key);
 
         inline void leafLowerBound(ConstSlice key, std::stack<Block> &path);
@@ -146,10 +150,20 @@ namespace cdb {
         inline Iterator nextIterator(Iterator iter);
         inline Iterator prevIterator(Iterator iter);
 
+        inline void eraseInLeaf(Block &leaf, ConstSlice key);
+        inline void eraseInNode(Block &leaf, ConstSlice key);
+        inline void mergeLeaf(Block &leaf, Block &next_leaf);
+        inline void mergeNode(Block &node, Block &next_node);
+
+        inline void updateKey(Block &node, Byte *new_key, BlockIndex index);
+
+        inline void updateLinkBeforeFreeLeaf(Block &leaf);
+        inline void updateLinkBeforeFreeNode(Block &node);
     public:
         BTree(
                 DriverAccesser *accesser,
                 Comparator less,
+                Comparator equal,
                 BlockIndex root_index,
                 Length key_size,
                 Length value_size
@@ -163,7 +177,7 @@ namespace cdb {
         Iterator lowerBound(ConstSlice key);
         Iterator upperBound(ConstSlice key);
         Iterator insert(ConstSlice key);
-        Iterator erase(Iterator pos);
+        void erase(ConstSlice key);
 
         Iterator begin();
         Iterator end();
@@ -178,6 +192,9 @@ namespace cdb {
         void forEachReverse(Iterator b, Iterator e, Operator op);
 
         void reset();
+
+        FRIEND_TEST(BTreeTest, InternalTest);
+        friend class BTreeTest;
     };
 
 }
