@@ -9,8 +9,9 @@ namespace cdb {
     struct BTree::NodeHeader
     {
         bool node_is_leaf : 1;
-        unsigned int node_length : 15;
-        unsigned int entry_count : 16;
+        unsigned int node_length : 7;
+        unsigned int entry_count : 12;
+        unsigned int index_in_parent : 12;
         BlockIndex prev;
         BlockIndex next;
         BlockIndex parent;
@@ -79,7 +80,15 @@ BTree::reset()
     // TODO release all other blocks
 
     auto *header = getHeaderFromNode(_root);
-    *header = {true, 1, 0, 0, 0, 0};
+    *header = {
+        true,   // node_is_leaf
+        1,      // node_length
+        0,      // entry_count
+        0,      // index_in_parent
+        0,      // prev
+        0,      // next
+        0       // parent
+    };
 
     _first_leaf = _last_leaf = _root.index();
 }
@@ -144,13 +153,15 @@ void
 BTree::leafLowerBound(ConstSlice key, std::stack<Block> &path)
 {
     BlockIndex parent = 0;
+    BlockIndex index_in_parent = 0;
     path.push(_root);
 
     auto *header = getHeaderFromNode(path.top());
 
     while (!header->node_is_leaf) {
         header->parent = parent;
-        path.push(_accesser->aquire(lowerBoundInNode(path.top(), key)));
+        header->index_in_parent = index_in_parent;
+        path.push(_accesser->aquire(lowerBoundInNode(path.top(), key, index_in_parent)));
         header = getHeaderFromNode(path.top());
         parent = path.top().index();
     }
@@ -160,13 +171,15 @@ void
 BTree::leafUpperBound(ConstSlice key, std::stack<Block> &path)
 {
     BlockIndex parent = 0;
+    BlockIndex index_in_parent = 0;
     path.push(_root);
 
     auto *header = getHeaderFromNode(path.top());
 
     while (!header->node_is_leaf) {
         header->parent = parent;
-        path.push(_accesser->aquire(upperBoundInNode(path.top(), key)));
+        header->index_in_parent = index_in_parent;
+        path.push(_accesser->aquire(upperBoundInNode(path.top(), key, index_in_parent)));
         header = getHeaderFromNode(path.top());
         parent = path.top().index();
     }
@@ -177,7 +190,7 @@ BTree::getHeaderFromNode(Slice node)
 { return reinterpret_cast<NodeHeader*>(node.content()); }
 
 BlockIndex
-BTree::lowerBoundInNode(Block &node, ConstSlice key)
+BTree::lowerBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent)
 {
     auto *entry_limit = getLimitEntryInNode(node);
     auto *entry = getFirstEntryInNode(node);
@@ -186,16 +199,18 @@ BTree::lowerBoundInNode(Block &node, ConstSlice key)
 
     for (; entry < entry_limit; entry = nextEntryInNode(entry)) {
         if (_less(key.content(), getKeyFromNodeEntry(entry))) {
+            index_in_parent = (entry - getFirstEntryInNode(node)) / nodeEntrySize() - 1;
             return ret;
         }
         ret = *getIndexFromNodeEntry(entry);
     }
 
+    index_in_parent = (entry - getFirstEntryInNode(node)) / nodeEntrySize() - 1;
     return ret;
 }
 
 BlockIndex
-BTree::upperBoundInNode(Block &node, ConstSlice key)
+BTree::upperBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent)
 {
     auto *entry_start = getFirstEntryInNode(node);
 
@@ -205,10 +220,12 @@ BTree::upperBoundInNode(Block &node, ConstSlice key)
             entry = prevEntryInNode(entry)
     ) {
         if (!_less(key.content(), getKeyFromNodeEntry(entry))) {
+            index_in_parent = (entry - entry_start) / nodeEntrySize();
             return *getIndexFromNodeEntry(entry);
         }
     }
 
+    index_in_parent = 0x0FFF;
     return getMarkFromNode(node)->before;
 }
 
@@ -562,4 +579,19 @@ BTree::forEach(Iterator b, Iterator e, Operator op)
         op(b);
         b = nextIterator(std::move(b));
     }
+}
+
+void
+BTree::forEachReverse(Iterator b, Iterator e, Operator op)
+{
+    do {
+        e = prevIterator(std::move(e));
+        op(e);
+    } while (b != e);
+}
+
+BTree::Iterator
+BTree::erase(Iterator pos)
+{
+    // TODO
 }

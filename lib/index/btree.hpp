@@ -109,10 +109,10 @@ namespace cdb {
         inline Byte *prevEntryInLeaf(Byte *entry);
         inline Byte *getEntryInLeafByIndex(Block &node, Length index);
 
-        inline BlockIndex lowerBoundInNode(Block &node, ConstSlice key);
+        inline BlockIndex lowerBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent);
         inline Iterator   lowerBoundInLeaf(Block &leaf, ConstSlice key);
 
-        inline BlockIndex upperBoundInNode(Block &node, ConstSlice key);
+        inline BlockIndex upperBoundInNode(Block &node, ConstSlice key, BlockIndex &index_in_parent);
         inline Iterator   upperBoundInLeaf(Block &leaf, ConstSlice key);
 
         inline void leafLowerBound(ConstSlice key, std::stack<Block> &path);
@@ -163,6 +163,7 @@ namespace cdb {
         Iterator lowerBound(ConstSlice key);
         Iterator upperBound(ConstSlice key);
         Iterator insert(ConstSlice key);
+        Iterator erase(Iterator pos);
 
         Iterator begin();
         Iterator end();

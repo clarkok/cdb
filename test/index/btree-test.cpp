@@ -157,3 +157,28 @@ TEST_F(BTreeTest, ForEach)
         EXPECT_EQ(16, count) << "i = " << i;
     }
 }
+
+TEST_F(BTreeTest, ForEachReverse)
+{
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        int k = (i / 16) * 16;
+        Slice key(reinterpret_cast<Byte*>(&k), sizeof(k));
+        auto iter = uut->insert(key);
+        *reinterpret_cast<int*>(iter.getValue().content()) = i;
+    }
+
+    for (int i = 0; i < TEST_NUMBER; i += 16) {
+        int count = 0;
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+
+        uut->forEachReverse(
+            uut->lowerBound(key),
+            uut->upperBound(key),
+            [&count](const BTree::Iterator &) -> void {
+                ++count;
+            }
+        );
+
+        EXPECT_EQ(16, count) << "i = " << i;
+    }
+}
