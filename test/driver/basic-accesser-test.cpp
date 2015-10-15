@@ -12,7 +12,14 @@ using namespace cdb;
 static const char TEST_PATH[] = "/tmp/basic-allocator-test.tmp";
 static const char TEST_STRING[] = "Hello World!";
 
-TEST(BasicAccesserTest, Access)
+class BasicAccesserTest : public ::testing::Test
+{
+protected:
+    static void TearDownTestCase()
+    { std::remove(TEST_PATH); }
+};
+
+TEST_F(BasicAccesserTest, Access)
 {
     std::unique_ptr<BasicDriver> drv(new BasicDriver(TEST_PATH));
     std::unique_ptr<BitmapAllocator> allocator(new BitmapAllocator(drv.get(), 0));
@@ -43,7 +50,7 @@ TEST(BasicAccesserTest, Access)
     uut->freeBlock(index);
 }
 
-TEST(BasicAccesserTest, MultiAccess)
+TEST_F(BasicAccesserTest, MultiAccess)
 {
     std::unique_ptr<BasicDriver> drv(new BasicDriver(TEST_PATH));
     std::unique_ptr<BitmapAllocator> allocator(new BitmapAllocator(drv.get(), 0));
@@ -64,5 +71,14 @@ TEST(BasicAccesserTest, MultiAccess)
     uut->freeBlock(index);
 }
 
-TEST(BasicAccesserTest, TearDown)
-{ std::remove(TEST_PATH); }
+TEST_F(BasicAccesserTest, Free)
+{
+    std::unique_ptr<BasicDriver> drv(new BasicDriver(TEST_PATH));
+    std::unique_ptr<BitmapAllocator> allocator(new BitmapAllocator(drv.get(), 0));
+    std::unique_ptr<BasicAccesser> uut(new BasicAccesser(drv.get(), allocator.get()));
+
+    auto block = uut->aquire(uut->allocateBlock());
+    uut->freeBlock(block.index());
+
+    block = uut->aquire(uut->allocateBlock());
+}

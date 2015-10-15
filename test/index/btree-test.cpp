@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+#include <vector>
 
 #include "lib/driver/bitmap-allocator.hpp"
 #include "lib/driver/basic-driver.hpp"
@@ -14,7 +15,7 @@ using namespace cdb;
 static const char DUMP_PATH[] = "/tmp/btree-dump.txt";
 static const char TEST_PATH[] = "/tmp/btree-test.tmp";
 static const int TEST_NUMBER = 512;
-static const int TEST_LARGE_NUMBER = 1000000;
+static const int TEST_LARGE_NUMBER = 10000;    // tested up to 1000000, make it small to reduce test time
 
 namespace cdb {
     class BTreeTest : public ::testing::Test
@@ -96,7 +97,11 @@ namespace cdb {
         }
 
         void treeDump(std::ostream &os)
-        { treeDump(uut->_root, os); }
+        {
+            os << "first_leaf: " << uut->_first_leaf << std::endl;
+            os << "last_leaf: " << uut->_last_leaf << std::endl;
+            treeDump(uut->_root, os);
+        }
 
         void treeDump(Block node, std::ostream &os)
         {
@@ -274,6 +279,11 @@ TEST_F(BTreeTest, EmptyIterator)
         { ++count; }
     );
     EXPECT_EQ(0, count);
+    uut->forEachReverse(
+        [&count](const BTree::Iterator &) -> void
+        { ++count; }
+    );
+    EXPECT_EQ(0, count);
 }
 
 TEST_F(BTreeTest, LargeAmountData)
@@ -295,8 +305,19 @@ TEST_F(BTreeTest, LargeAmountData)
     );
     EXPECT_EQ(TEST_LARGE_NUMBER, count);
 
-    std::ofstream fout(DUMP_PATH);
-    treeDump(fout);
+    count = 0;
+    uut->forEachReverse(
+        [&count](const BTree::Iterator &i) -> void
+        { 
+            ++count;
+            EXPECT_EQ(
+                    TEST_LARGE_NUMBER - count,
+                    *reinterpret_cast<int*>(i.getValue().content())
+                )
+                << *reinterpret_cast<const int*>(i.getKey());
+        }
+    );
+    EXPECT_EQ(TEST_LARGE_NUMBER, count);
 }
 
 TEST_F(BTreeTest, InternalTest)
@@ -616,4 +637,148 @@ TEST_F(BTreeTest, InternalTest)
         }
     }
 }
+
+TEST_F(BTreeTest, EraseTest)
+{
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        *reinterpret_cast<int*>(uut->insert(makeConstSlice(i)).getValue().content()) = i;
+    }
+
+    int count = 0;
+    uut->forEach(
+        [&count](const BTree::Iterator &) -> void
+        { ++count; }
+    );
+    EXPECT_EQ(TEST_NUMBER, count);
+
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        uut->erase(makeConstSlice(i));
+        int count = 0;
+        uut->forEach(
+            [&count, i](const BTree::Iterator &iter) -> void
+            {
+                ++count;
+                EXPECT_EQ(i + count, *reinterpret_cast<int*>(iter.getValue().content()));
+            }
+        );
+        EXPECT_EQ(TEST_NUMBER - i - 1, count);
+        count = 0;
+        uut->forEachReverse(
+            [&count, i](const BTree::Iterator &iter) -> void
+            {
+                ++count;
+                EXPECT_EQ(
+                    TEST_NUMBER - count,
+                    *reinterpret_cast<int*>(iter.getValue().content())
+                );
+            }
+        );
+        EXPECT_EQ(TEST_NUMBER - i - 1, count);
+    }
+}
+
+TEST_F(BTreeTest, EraseInReverseOrder)
+{
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        *reinterpret_cast<int*>(uut->insert(makeConstSlice(i)).getValue().content()) = i;
+    }
+
+    int count = 0;
+    uut->forEach(
+        [&count](const BTree::Iterator &) -> void
+        { ++count; }
+    );
+    EXPECT_EQ(TEST_NUMBER, count);
+
+    for (int i = TEST_NUMBER - 1; i >= 0; --i) {
+        uut->erase(makeConstSlice(i));
+        int count = 0;
+        uut->forEach(
+            [&count](const BTree::Iterator &iter) -> void
+            {
+                EXPECT_EQ(count, *reinterpret_cast<int*>(iter.getValue().content()));
+                ++count;
+            }
+        );
+        EXPECT_EQ(i, count);
+        count = 0;
+        uut->forEachReverse(
+            [&count, i](const BTree::Iterator &iter) -> void
+            {
+                ++count;
+                EXPECT_EQ(
+                    i - count,
+                    *reinterpret_cast<int*>(iter.getValue().content())
+                );
+            }
+        );
+        EXPECT_EQ(i, count);
+    }
+}
+
+TEST_F(BTreeTest, EraseTestLargeAmount)
+{
+    for (int i = 0; i < TEST_LARGE_NUMBER; ++i) {
+        Slice key(reinterpret_cast<Byte*>(&i), sizeof(i));
+        auto iter = uut->insert(key);
+        *reinterpret_cast<int*>(iter.getValue().content()) = i;
+    }
+
+    std::ofstream fout(DUMP_PATH + std::string("-original"));
+    treeDump(fout);
+
+    for (int i = 0; i < TEST_LARGE_NUMBER; ++i) {
+        uut->erase(makeConstSlice(i));
+    }
+
+    int count = 0;
+    uut->forEach([&count](const BTree::Iterator &) { ++count; });
+    EXPECT_EQ(0, count);
+}
+
+TEST_F(BTreeTest, RandomTest)
+{
+    std::vector<int> list(TEST_NUMBER);
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        list[i] = i;
+    }
+    std::shuffle(list.begin(), list.end(), std::default_random_engine(0));
+
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        *reinterpret_cast<int*>(uut->insert(makeConstSlice(list[i])).getValue().content()) = i;
+
+        int count = 0;
+        int last = -1;
+        uut->forEach(
+            [&count, &last, i](const BTree::Iterator &iter) -> void
+            { 
+                ++count;
+                EXPECT_TRUE(last < *reinterpret_cast<const int*>(iter.getKey()))
+                    << last << " <> " << *reinterpret_cast<const int*>(iter.getKey())
+                    << " when i = " << i;
+                last = *reinterpret_cast<const int*>(iter.getKey());
+            }
+        );
+        EXPECT_EQ(i + 1, count);
+    }
+
+    for (int i = TEST_NUMBER - 1; i >= 0; --i) {
+        uut->erase(makeConstSlice(list[i]));
+
+        int count = 0;
+        int last = -1;
+        uut->forEach(
+            [&count, &last, i](const BTree::Iterator &iter) -> void
+            { 
+                ++count;
+                EXPECT_TRUE(last < *reinterpret_cast<const int*>(iter.getKey()))
+                    << last << " <> " << *reinterpret_cast<const int*>(iter.getKey())
+                    << " when i = " << i;
+                last = *reinterpret_cast<const int*>(iter.getKey());
+            }
+        );
+        EXPECT_EQ(i, count);
+    }
+}
+
 }

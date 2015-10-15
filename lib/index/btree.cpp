@@ -518,15 +518,16 @@ BTree::forEach(Iterator b, Iterator e, Operator op)
 void
 BTree::forEachReverse(Iterator b, Iterator e, Operator op)
 {
-    do {
+    while (b != e) {
         e = prevIterator(std::move(e));
         op(e);
-    } while (b != e);
+    }
 }
 
 void
 BTree::erase(ConstSlice key)
 {
+    assert(_first_leaf == 1);
     assert(key.length() >= _key_size);
 
     Buffer removal_key(key.cbegin(), key.cend());
@@ -567,7 +568,6 @@ BTree::erase(ConstSlice key)
             );
 
         mergeLeaf(leaf, next_leaf);
-
         _accesser->freeBlock(next_leaf.index());
     }
     else {
@@ -582,8 +582,9 @@ BTree::erase(ConstSlice key)
 
         if (node.index() == _root.index()) {
             if (header->entry_count == 0) {
-                _accesser->freeBlock(_root.index());
+                auto prev_root_index = _root.index();
                 _root = _accesser->aquire(getMarkFromNode(node)->before);
+                _accesser->freeBlock(prev_root_index);
                 return;
             }
             return;
@@ -594,7 +595,7 @@ BTree::erase(ConstSlice key)
             auto *parent_last_entry = getLastEntryInNode(parent);
             auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
 
-            updateKey(path.top(), getKeyFromNodeEntry(getFirstEntryInNode(node)), node.index());
+            updateKey(parent, getKeyFromNodeEntry(getFirstEntryInNode(node)), node.index());
 
             if (*parent_last_index == node.index()) {
                 return;
@@ -608,13 +609,12 @@ BTree::erase(ConstSlice key)
             }
 
             std::copy(
-                    removal_key.begin(),
-                    removal_key.end(),
-                    getKeyFromLeafEntry(getFirstEntryInNode(next_node))
+                    getKeyFromNodeEntry(getFirstEntryInNode(next_node)),
+                    getKeyFromNodeEntry(getFirstEntryInNode(next_node)) + _key_size,
+                    removal_key.content()
                 );
 
             mergeNode(node, next_node);
-
             _accesser->freeBlock(next_node.index());
         }
         else {
@@ -697,17 +697,16 @@ BTree::mergeLeaf(Block &leaf, Block &next_leaf)
     auto *header = getHeaderFromNode(leaf);
     auto *next_header = getHeaderFromNode(next_leaf);
 
-    header->entry_count += next_header->entry_count;
-
     std::copy(
             getFirstEntryInLeaf(next_leaf),
             getLimitEntryInLeaf(next_leaf),
             getLimitEntryInLeaf(leaf)
         );
 
+    header->entry_count += next_header->entry_count;
     header->next = next_header->next;
     if (header->next) {
-        Block new_next_leaf = _accesser->aquire(next_header->next);
+        Block new_next_leaf = _accesser->aquire(header->next);
         getHeaderFromNode(new_next_leaf)->prev = leaf.index();
     }
     else {
@@ -721,17 +720,16 @@ BTree::mergeNode(Block &node, Block &next_node)
     auto *header = getHeaderFromNode(node);
     auto *next_header = getHeaderFromNode(next_node);
 
-    header->entry_count += next_header->entry_count;
-
     std::copy(
             getFirstEntryInNode(next_node),
             getLimitEntryInNode(next_node),
             getLimitEntryInNode(node)
         );
 
+    header->entry_count += next_header->entry_count;
     header->next = next_header->next;
     if (header->next) {
-        Block new_next_node = _accesser->aquire(next_header->next);
+        Block new_next_node = _accesser->aquire(header->next);
         getHeaderFromNode(new_next_node)->prev = node.index();
     }
 }
@@ -747,10 +745,11 @@ BTree::updateKey(Block &node, Byte *new_key, BlockIndex index)
     ) {
         if (index == *getIndexFromNodeEntry(entry)) {
             std::copy(
-                    getKeyFromNodeEntry(entry),
-                    getKeyFromNodeEntry(entry) + _key_size,
-                    new_key
+                    new_key,
+                    new_key + _key_size,
+                    getKeyFromNodeEntry(entry)
                 );
+            break;
         }
     }
 }
@@ -759,13 +758,18 @@ void
 BTree::updateLinkBeforeFreeLeaf(Block &leaf)
 {
     auto *header = getHeaderFromNode(leaf);
+    assert(header->prev);
     if (header->prev) {
         Block prev_leaf = _accesser->aquire(header->prev);
         getHeaderFromNode(prev_leaf)->next = header->next;
     }
+
     if (header->next) {
         Block next_leaf = _accesser->aquire(header->next);
         getHeaderFromNode(next_leaf)->prev = header->prev;
+    }
+    else {
+        _last_leaf = header->prev;
     }
 }
 
@@ -773,6 +777,7 @@ void
 BTree::updateLinkBeforeFreeNode(Block &node)
 {
     auto *header = getHeaderFromNode(node);
+    assert(header->prev);
     if (header->prev) {
         Block prev_node = _accesser->aquire(header->prev);
         getHeaderFromNode(prev_node)->next = header->next;

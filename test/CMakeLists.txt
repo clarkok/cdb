@@ -1,3 +1,4 @@
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-inline -Wno-unused-const-variable")
 if (CMAKE_COMPILER_IS_GNUCXX)
     set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-modules)
     include(CodeCoverage)
