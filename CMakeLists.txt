@@ -8,7 +8,7 @@ set (CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 if (CMAKE_COMPILER_IS_GNUCXX)
     set (CMAKE_CXX_FLAGS " -std=c++11 -g -O0 -fprofile-arcs -ftest-coverage -Wall -Wextra ")
 else()
-    set (CMAKE_CXX_FLAGS " -std=c++11 -g -Wall -Wextra ")
+    set (CMAKE_CXX_FLAGS " -std=c++11 -g -O3 -Wall -Wextra ")
 endif()
 
 enable_testing ()

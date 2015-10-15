@@ -3,6 +3,7 @@
 
 #include <gtest/gtest_prod.h>
 
+#include <vector>
 #include <stack>
 #include <iterator>
 #include <functional>
@@ -74,25 +75,10 @@ namespace cdb {
         typedef std::function<void(const Iterator &)> Operator;
 
     private:
-        struct NodeHeader
-        {
-            bool node_is_leaf : 1;
-            unsigned int node_length : 7;
-            unsigned int entry_count : 24;
-            BlockIndex prev;
-            BlockIndex next;
-        };
-
-        struct NodeMark
-        {
-            NodeHeader header;
-            BlockIndex before;
-        };
-
-        struct LeafMark
-        {
-            NodeHeader header;
-        };
+        struct NodeHeader;
+        struct NodeMark;
+        struct LeafMark;
+        typedef std::stack<Block> BlockStack;
 
         DriverAccesser *_accesser;
         Comparator _less;
@@ -132,7 +118,7 @@ namespace cdb {
         inline BlockIndex findInNode(Block &node, ConstSlice key);
         inline Iterator   findInLeaf(Block &leaf, ConstSlice key);
 
-        inline void keepTracingToLeaf(ConstSlice key, std::stack<Block> &path);
+        inline void keepTracingToLeaf(ConstSlice key, BlockStack &path);
 
         /**
          * @return new block

@@ -10,12 +10,14 @@
 #include "lib/driver/basic-accesser.hpp"
 #include "lib/index/btree.hpp"
 
+#include "lib/index/btree-intl.hpp"
+
 using namespace cdb;
 
 static const char DUMP_PATH[] = "/tmp/btree-dump.txt";
 static const char TEST_PATH[] = "/tmp/btree-test.tmp";
 static const int TEST_NUMBER = 512;
-static const int TEST_LARGE_NUMBER = 10000;    // tested up to 1000000, make it small to reduce test time
+static const int TEST_LARGE_NUMBER = 1000000;    // tested up to 1000000, make it small to reduce test time
 
 namespace cdb {
     class BTreeTest : public ::testing::Test
