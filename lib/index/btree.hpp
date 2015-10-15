@@ -74,9 +74,25 @@ namespace cdb {
         typedef std::function<void(const Iterator &)> Operator;
 
     private:
-        struct NodeHeader;
-        struct NodeMark;
-        struct LeafMark;
+        struct NodeHeader
+        {
+            bool node_is_leaf : 1;
+            unsigned int node_length : 7;
+            unsigned int entry_count : 24;
+            BlockIndex prev;
+            BlockIndex next;
+        };
+
+        struct NodeMark
+        {
+            NodeHeader header;
+            BlockIndex before;
+        };
+
+        struct LeafMark
+        {
+            NodeHeader header;
+        };
 
         DriverAccesser *_accesser;
         Comparator _less;
@@ -113,14 +129,10 @@ namespace cdb {
         inline Byte *prevEntryInLeaf(Byte *entry);
         inline Byte *getEntryInLeafByIndex(Block &node, Length index);
 
-        inline BlockIndex lowerBoundInNode(Block &node, ConstSlice key);
-        inline Iterator   lowerBoundInLeaf(Block &leaf, ConstSlice key);
+        inline BlockIndex findInNode(Block &node, ConstSlice key);
+        inline Iterator   findInLeaf(Block &leaf, ConstSlice key);
 
-        inline BlockIndex upperBoundInNode(Block &node, ConstSlice key);
-        inline Iterator   upperBoundInLeaf(Block &leaf, ConstSlice key);
-
-        inline void leafLowerBound(ConstSlice key, std::stack<Block> &path);
-        inline void leafUpperBound(ConstSlice key, std::stack<Block> &path);
+        inline void keepTracingToLeaf(ConstSlice key, std::stack<Block> &path);
 
         /**
          * @return new block

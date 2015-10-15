@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <memory>
+#include <iostream>
+#include <fstream>
 #include <cstdio>
 
 #include "lib/driver/bitmap-allocator.hpp"
@@ -9,9 +11,10 @@
 
 using namespace cdb;
 
+static const char DUMP_PATH[] = "/tmp/btree-dump.txt";
 static const char TEST_PATH[] = "/tmp/btree-test.tmp";
 static const int TEST_NUMBER = 512;
-static const int TEST_LARGE_NUMBER = 100000;
+static const int TEST_LARGE_NUMBER = 1000000;
 
 namespace cdb {
     class BTreeTest : public ::testing::Test
@@ -70,8 +73,73 @@ namespace cdb {
             std::copy(
                     value.cbegin(),
                     value.cend(),
-                    uut->getValueFromLeafEntry(entry)
+                    reinterpret_cast<Byte*>(uut->getIndexFromNodeEntry(entry))
                 );
+        }
+
+        void setKeyOfLeafEntry(Byte* entry, ConstSlice key)
+        {
+            std::copy(
+                    key.cbegin(),
+                    key.cend(),
+                    uut->getKeyFromLeafEntry(entry)
+                );
+        }
+
+        void setValueOfLeafEntry(Byte* entry, ConstSlice value)
+        {
+            std::copy(
+                    value.cbegin(),
+                    value.cend(),
+                    uut->getValueFromLeafEntry(entry).begin()
+                );
+        }
+
+        void treeDump(std::ostream &os)
+        { treeDump(uut->_root, os); }
+
+        void treeDump(Block node, std::ostream &os)
+        {
+            os << node.index() << std::endl;
+
+            // dump head
+            auto *header = uut->getHeaderFromNode(node);
+            os << "    node_is_leaf: " << header->node_is_leaf << std::endl;
+            os << "    node_length: " << header->node_length << std::endl;
+            os << "    entry_count: " << header->entry_count << std::endl;
+            os << "    prev: " << header->prev << std::endl;
+            os << "    next: " << header->next << std::endl;
+
+            if (header->node_is_leaf) {
+                os << std::endl;
+                for (int i = 0; i < header->entry_count; ++i) {
+                    auto *entry = uut->getEntryInLeafByIndex(node, i);
+                    os << "    " << *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry))
+                        << " : " << *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content())
+                        << std::endl;
+                }
+                os << std::endl;
+            }
+            else {
+                os << "    before: " << uut->getMarkFromNode(node)->before << std::endl;
+                os << std::endl;
+                for (int i = 0; i < header->entry_count; ++i) {
+                    auto *entry = uut->getEntryInNodeByIndex(node, i);
+                    os << "    " << *reinterpret_cast<int*>(uut->getKeyFromNodeEntry(entry))
+                        << ": " << *reinterpret_cast<int*>(uut->getIndexFromNodeEntry(entry))
+                        << std::endl;
+                }
+                os << std::endl;
+
+                if (uut->getMarkFromNode(node)->before) {
+                    treeDump(uut->_accesser->aquire(uut->getMarkFromNode(node)->before), os);
+                }
+
+                for (int i = 0; i < header->entry_count; ++i) {
+                    auto *entry = uut->getEntryInNodeByIndex(node, i);
+                    treeDump(uut->_accesser->aquire(*uut->getIndexFromNodeEntry(entry)), os);
+                }
+            }
         }
     };
 
@@ -141,7 +209,10 @@ TEST_F(BTreeTest, UpperBoundButNotFound)
         auto iter = uut->upperBound(key);
 
         EXPECT_EQ(((i + 16) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey()));
-        EXPECT_EQ(((i + 16) / 16) * 16, *reinterpret_cast<const int*>(iter.getValue().content()));
+        EXPECT_EQ(
+                ((i + 16) / 16) * 16,
+                *reinterpret_cast<const int*>(iter.getValue().content())
+            ) << "i = " << i;
     }
 }
 
@@ -223,23 +294,325 @@ TEST_F(BTreeTest, LargeAmountData)
         }
     );
     EXPECT_EQ(TEST_LARGE_NUMBER, count);
+
+    std::ofstream fout(DUMP_PATH);
+    treeDump(fout);
 }
 
 TEST_F(BTreeTest, InternalTest)
 {
-    // lowerBoundInNode
+    // findInNode
     {
+        // normal test
         Block node = uut->_accesser->aquire(uut->_accesser->allocateBlock());
-        auto *header = uut->getHeaderFromNode(node);
+        auto *mark = uut->getMarkFromNode(node);
+        *mark = {
+            {
+                false,      // node_is_leaf
+                1,          // node_length
+                16,         // entry_count
+                0,          // prev
+                0           // next
+            },
+            0xFFFFFFFF      // before
+        };
         for (int i = 0; i < 16; ++i) {
             setKeyOfNodeEntry(
-                    uut->getEntryInNodeByIndex(node, 0),
+                    uut->getEntryInNodeByIndex(node, i),
                     makeConstSlice(i)
                 );
             setValueOfNodeEntry(
-                    uut->getEntryInNodeByIndex(node, 0),
+                    uut->getEntryInNodeByIndex(node, i),
                     makeConstSlice(i)
                 );
+        }
+        for (int i = 0; i < 16; ++i) {
+            EXPECT_EQ(i, uut->findInNode(node, makeConstSlice(i)));
+        }
+
+        // full size test
+        int full_size = uut->maximumEntryPerNode();
+        *mark = {
+            {
+                false,          // node_is_leaf
+                1,              // node_length
+                static_cast<unsigned int>(full_size),      // entry_count
+                0,              // prev
+                0               // next
+            },
+            0xFFFFFFFF          // before
+        };
+
+        for (int i = 16; i < 16 + full_size; ++i) {
+            setKeyOfNodeEntry(
+                    uut->getEntryInNodeByIndex(node, i - 16),
+                    makeConstSlice(i)
+                );
+            setValueOfNodeEntry(
+                    uut->getEntryInNodeByIndex(node, i - 16),
+                    makeConstSlice(i)
+                );
+        }
+        for (int i = 16; i < 16 + full_size; ++i) {
+            EXPECT_EQ(i, uut->findInNode(node, makeConstSlice(i)));
+        }
+        for (int i = 0; i < 16; ++i) {
+            EXPECT_EQ(0xFFFFFFFF, uut->findInNode(node, makeConstSlice(i)));
+        }
+
+        // enpty size test
+        *mark = {
+            {
+                false,          // node_is_leaf
+                1,              // node_length
+                0,              // entry_count
+                0,              // prev
+                0               // next
+            },
+            0xFFFFFFFF          // before
+        };
+
+        for (int i = 0; i < 1000; ++i) {
+            EXPECT_EQ(0xFFFFFFFF, uut->findInNode(node, makeConstSlice(i)));
+        }
+
+        // lower bound not found test
+        *mark = {
+            {
+                false,          // node_is_leaf
+                1,              // node_length
+                17,             // entry_count
+                0,              // prev
+                0               // next
+            },
+            0xFFFFFFFF          // before
+        };
+        for (int i = 0; i <= 16; ++i) {
+            int t = i * 16;
+            setKeyOfNodeEntry(
+                    uut->getEntryInNodeByIndex(node, i),
+                    makeConstSlice(t)
+                );
+            setValueOfNodeEntry(
+                    uut->getEntryInNodeByIndex(node, i),
+                    makeConstSlice(t)
+                );
+        }
+        for (int i = 0; i < 16 * 16; ++i) {
+            EXPECT_EQ(
+                    (i / 16) * 16,
+                    uut->findInNode(node, makeConstSlice(i))
+                ) << "i = " << i;
+        }
+    }
+
+    // findInLeaf
+    {
+        // normal test
+        Block leaf = uut->_accesser->aquire(uut->_accesser->allocateBlock());
+        auto *header = uut->getHeaderFromNode(leaf);
+        *header = {
+            true,       // node_is_leaf
+            1,          // node_length
+            16,         // entry_count
+            0,          // prev
+            0,          // next
+        };
+
+        for (int i = 0; i < 16; ++i) {
+            setKeyOfLeafEntry(
+                    uut->getEntryInLeafByIndex(leaf, i),
+                    makeConstSlice(i)
+                );
+            setValueOfLeafEntry(
+                    uut->getEntryInLeafByIndex(leaf, i),
+                    makeConstSlice(i)
+                );
+        }
+        for (int i = 0; i < 16; ++i) {
+            auto iter = uut->findInLeaf(leaf, makeConstSlice(i));
+            EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
+            EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
+        }
+
+        // full test
+        Block next_leaf = uut->_accesser->aquire(uut->_accesser->allocateBlock());
+        auto *next_header = uut->getHeaderFromNode(next_leaf);
+
+        uut->_first_leaf = leaf.index();
+        uut->_last_leaf = next_leaf.index();
+
+        *next_header = {
+            true,
+            1,
+            1,
+            0,
+            0
+        };
+        int full_size = uut->maximumEntryPerLeaf();
+        *header = {
+            true,       // node_is_leaf
+            1,          // node_length
+            static_cast<unsigned int>(full_size),   // entry_count
+            0,          // prev
+            next_leaf.index()       // next
+        };
+
+        for (int i = 16; i < full_size + 16; ++i) {
+            setKeyOfLeafEntry(
+                    uut->getEntryInLeafByIndex(leaf, i - 16),
+                    makeConstSlice(i)
+                );
+            setValueOfLeafEntry(
+                    uut->getEntryInLeafByIndex(leaf, i - 16),
+                    makeConstSlice(i)
+                );
+        }
+
+        int key = full_size + 32;
+        setKeyOfLeafEntry(
+                uut->getEntryInLeafByIndex(next_leaf, 0),
+                makeConstSlice(key)
+            );
+        setValueOfLeafEntry(
+                uut->getEntryInLeafByIndex(next_leaf, 0),
+                makeConstSlice(key)
+            );
+
+        for (int i = 16; i < full_size + 16; ++i) {
+            auto iter = uut->findInLeaf(leaf, makeConstSlice(i));
+            EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
+            EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
+        }
+
+        for (int i = full_size + 16; i < full_size + 32; ++i) {
+            auto iter = uut->findInLeaf(leaf, makeConstSlice(i));
+            EXPECT_EQ(full_size + 32, *reinterpret_cast<const int*>(iter.getKey()));
+            EXPECT_EQ(full_size + 32, *reinterpret_cast<int*>(iter.getValue().content()));
+        }
+    }
+
+    // splitLeaf
+    {
+        // root leaf split test
+        {
+            uut->_root = uut->_accesser->aquire(uut->_accesser->allocateBlock());
+            Block &leaf = uut->_root;
+            auto *header = uut->getHeaderFromNode(leaf);
+            int full_size = uut->maximumEntryPerLeaf();
+
+            *header = {
+                true,       // node_is_leaf
+                1,          // node_length
+                static_cast<unsigned int>(full_size),   // entry_count
+                0,
+                0
+            };
+
+            for (int i = 0; i < full_size; ++i) {
+                setKeyOfLeafEntry(
+                        uut->getEntryInLeafByIndex(leaf, i),
+                        makeConstSlice(i)
+                    );
+                setValueOfLeafEntry(
+                        uut->getEntryInLeafByIndex(leaf, i),
+                        makeConstSlice(i)
+                    );
+            }
+
+            auto split_offset = header->entry_count / 2;
+            Block new_leaf = uut->splitLeaf(leaf, split_offset);
+            auto *new_header = uut->getHeaderFromNode(new_leaf);
+
+            EXPECT_TRUE(header->node_is_leaf);
+            EXPECT_EQ(1, header->node_length);
+            EXPECT_EQ(split_offset, header->entry_count);
+            EXPECT_EQ(0, header->prev);
+            EXPECT_EQ(new_leaf.index(), header->next);
+
+            EXPECT_TRUE(new_header->node_is_leaf);
+            EXPECT_EQ(1, new_header->node_length);
+            EXPECT_EQ(full_size - split_offset, new_header->entry_count);
+            EXPECT_EQ(leaf.index(), new_header->prev);
+            EXPECT_EQ(0, new_header->next);
+
+            for (int i = 0; i < split_offset; ++i) {
+                auto *entry = uut->getEntryInLeafByIndex(leaf, i);
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry)));
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content()));
+            }
+
+            for (int i = split_offset; i < full_size; ++i) {
+                auto *entry = uut->getEntryInLeafByIndex(new_leaf, i - split_offset);
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry)));
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content()));
+            }
+        }
+
+        // leaf with both links test
+        {
+            int full_size = uut->maximumEntryPerLeaf();
+
+            Block leaf = uut->_accesser->aquire(uut->_accesser->allocateBlock());
+            Block prev_leaf = uut->_accesser->aquire(uut->_accesser->allocateBlock());
+            Block next_leaf = uut->_accesser->aquire(uut->_accesser->allocateBlock());
+
+            auto *header = uut->getHeaderFromNode(leaf);
+            *header = {
+                true,
+                1,
+                static_cast<unsigned int>(full_size),
+                prev_leaf.index(),
+                next_leaf.index()
+            };
+
+            auto *prev_header = uut->getHeaderFromNode(prev_leaf);
+            prev_header->next = leaf.index();
+
+            auto *next_header = uut->getHeaderFromNode(next_leaf);
+            next_header->prev = leaf.index();
+
+            for (int i = 0; i < full_size; ++i) {
+                setKeyOfLeafEntry(
+                        uut->getEntryInLeafByIndex(leaf, i),
+                        makeConstSlice(i)
+                    );
+                setValueOfLeafEntry(
+                        uut->getEntryInLeafByIndex(leaf, i),
+                        makeConstSlice(i)
+                    );
+            }
+
+            auto split_offset = header->entry_count / 2;
+            Block new_leaf = uut->splitLeaf(leaf, split_offset);
+            auto *new_header = uut->getHeaderFromNode(new_leaf);
+
+            EXPECT_TRUE(header->node_is_leaf);
+            EXPECT_EQ(1, header->node_length);
+            EXPECT_EQ(split_offset, header->entry_count);
+            EXPECT_EQ(prev_leaf.index(), header->prev);
+            EXPECT_EQ(new_leaf.index(), header->next);
+
+            EXPECT_TRUE(new_header->node_is_leaf);
+            EXPECT_EQ(1, new_header->node_length);
+            EXPECT_EQ(full_size - split_offset, new_header->entry_count);
+            EXPECT_EQ(leaf.index(), new_header->prev);
+            EXPECT_EQ(next_leaf.index(), new_header->next);
+
+            EXPECT_EQ(prev_header->next, leaf.index());
+            EXPECT_EQ(next_header->prev, new_leaf.index());
+
+            for (int i = 0; i < split_offset; ++i) {
+                auto *entry = uut->getEntryInLeafByIndex(leaf, i);
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry)));
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content()));
+            }
+
+            for (int i = split_offset; i < full_size; ++i) {
+                auto *entry = uut->getEntryInLeafByIndex(new_leaf, i - split_offset);
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry)));
+                EXPECT_EQ(i, *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content()));
+            }
         }
     }
 }
