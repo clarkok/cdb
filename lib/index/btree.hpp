@@ -42,7 +42,7 @@ namespace cdb {
      *     ....
      *
      * Each leaf node contains (BLOCK_SIZE - sizeof(LeafMark)) / (key_size + value_size) 
-     * records. Currently LeafMark only contains a Header, and linear searching is 
+     * records. Currently LeafMark only contains a Header, and binary searching is 
      * performed in the leaf node.
      *
      * The structure of a non-leaf node is as following:
@@ -65,8 +65,8 @@ namespace cdb {
      * Each non-leaf node contains (BLOCK_SIZE - sizeof(NodeMark)) / (key_size + 4) 
      * records. Compared to LeafMark, a `before' field is added to NodeMark. So all 
      * records with a key not less than nth key is stored in a subtree indexed by nth 
-     * index. Currently linear searching is performed in the non-leaf node. However
-     * all entries is kept increasingly 
+     * index. Currently bineay searching is performed in the non-leaf node, so all entries
+     * is kept increasingly 
      *
      * The root node can be either a leaf node or a non-leaf node. A BTree in disk is
      * identificated by the index of root, so user of BTree should notice the change of
@@ -172,6 +172,13 @@ namespace cdb {
         struct NodeMark;
         struct LeafMark;
 
+        /**
+         * Target pointer for Key
+         *
+         * When _key_size is not greater than sizeof(Key::value), then the value of key 
+         * is stored directly in `value'. Otherwise, the pointer to the actually key is
+         * stored in `pointer'
+         */
         struct Key
         {
             union {
@@ -180,7 +187,13 @@ namespace cdb {
             };
         };
 
-        // used for findInNode
+        /**
+         * Iterator used when performing binary search (currently using `std::upper_bound'
+         * in `findInNode'
+         *
+         * NOTE: this iterator is not a fully implemented standerd random access iterator,
+         * and it should not be used in other place.
+         */
         struct NodeEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
         {
             Byte *entry = nullptr;
@@ -267,7 +280,13 @@ namespace cdb {
             }
         };
 
-        // used for findInNode
+        /**
+         * Iterator used when performing binary search (currently using `std::lower_bound'
+         * in `findInLeaf'
+         *
+         * NOTE: this iterator is not a fully implemented standerd random access iterator,
+         * and it should not be used in other place.
+         */
         struct LeafEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
         {
             Byte *entry = nullptr;
@@ -354,6 +373,7 @@ namespace cdb {
             }
         };
 
+        /** this type is used to keep path to a leaf when search. @see keepTracingToLeaf */
         typedef std::stack<Block> BlockStack;
 
         DriverAccesser *_accesser;
@@ -401,7 +421,7 @@ namespace cdb {
 
         inline NodeMark *getMarkFromNode(Slice node);
         inline LeafMark *getMarkFromLeaf(Slice leaf);
-        inline NodeHeader *getHeaderFromNode(Slice node);
+        inline NodeHeader *getHeaderFromNode(Slice node);   /** for both leaf and non-leaf */
 
         inline Byte *getFirstEntryInNode(Block &node);
         inline Byte *getLimitEntryInNode(Block &node);
@@ -483,16 +503,43 @@ namespace cdb {
         inline Block splitNode(Block &old_node, Length split_offset);
 
         /**
-         * Insert a entry into a leaf, initialized with the key
+         * Insert a entry into a leaf, initialize it with the key
+         *
+         * If a key already exists in the tree, then an Iterator pointing to that record
+         * is returned instead of inserting a new record
+         *
+         * @param leaf the leaf to insert in
+         * @param key the key to be inserted
+         * @return an Iterator pointing to a new/old record whose key equal to `key'
+         * @see insertInNode
          */
         inline Iterator insertInLeaf(Block &leaf, Key key);
-        inline void     insertInNode(Block &node, Key key, BlockIndex index);
 
+        /**
+         * Insert a entry into a node, initialize it with the key and it's index
+         *
+         * NOTE: the key should not exist in the original node
+         *
+         * @param node the node to insert in
+         * @param key the key to be inserted
+         * @param index the index to be inserted
+         * @see insertInLeaf
+         */
+        inline void insertInNode(Block &node, Key key, BlockIndex index);
+
+        /**
+         * Construct a new root for the tree, with old root and the node after old root
+         *
+         * @param split_key the key split old root and the node after old root
+         * @param before old root
+         * @param after the node after old root
+         * @return new root
+         */
         inline Block newRoot(Key split_key, Block &before, Block &after);
 
         inline BlockIndex *getIndexFromNodeEntry(Byte *entry);
 
-        inline Slice      getValueFromLeafEntry(Byte *entry)
+        inline Slice getValueFromLeafEntry(Byte *entry)
         { return Slice(entry + _key_size, _value_size); }
 
         inline Byte* getKeyFromNodeEntry(Byte *entry)
@@ -504,19 +551,113 @@ namespace cdb {
         inline Length getFirstEntryOffset();
         inline Length getLimitEntryOffset(Block &leaf);
 
+        /**
+         * Get the Iterator pointing to the record next to `iter'
+         *
+         * If the `iter' is pointing to the last record in the tree, then `end()' is 
+         * returned. If `iter' is already equal to `end()' then `end()' is returned.
+         *
+         * @param iter the original Iterator
+         * @return a new Iterator pointing to next record
+         * @see prevIterator
+         * @see begin
+         * @see end
+         */
         inline Iterator nextIterator(Iterator iter);
+
+        /**
+         * Get the Iterator pointing to the record previous to `iter'
+         *
+         * If the `iter' is pointing to the first record in the tree, then `end()' is
+         * returned. If `iter' is equal to `end()', then a Iterator pointing to the last
+         * record is returned
+         *
+         * @param iter the original Iterator
+         * @return a new Iterator pointing to previous record
+         * @see nextIterator
+         * @see begin
+         * @see end
+         */
         inline Iterator prevIterator(Iterator iter);
 
+        /**
+         * Erase an entry with `key' in a leaf node
+         *
+         * If the required entry is not found, then this method do nothing
+         *
+         * @param leaf the leaf to erase in
+         * @param key the key to be erased
+         * @see eraseInNode
+         */
         inline void eraseInLeaf(Block &leaf, Key key);
-        inline void eraseInNode(Block &leaf, Key key);
+
+        /**
+         * Erase an entry with `key' in a non-leaf node
+         *
+         * If the required entry is not found, then this method do nothing
+         *
+         * @param node the node to erase in
+         * @param key the key to be erased
+         * @see eraseInLeaf
+         */
+        inline void eraseInNode(Block &node, Key key);
+
+        /**
+         * Merge all entries in `next_leaf' to `leaf'
+         *
+         * @param leaf the leaf to contain all entries
+         * @param next_leaf the leaf to move all entries from
+         * @see mergeNode
+         */
         inline void mergeLeaf(Block &leaf, Block &next_leaf);
+
+        /**
+         * Merge all entries in `next_node' to `node'
+         *
+         * @param node the node to contain all entires
+         * @param next_node the node to move all entries from
+         * @see mergeLeaf
+         */
         inline void mergeNode(Block &node, Block &next_node);
 
+        /**
+         * Update key whose index specified with a new key
+         *
+         * @param node the node to update
+         * @param new_key
+         * @param index
+         */
         inline void updateKey(Block &node, Key new_key, BlockIndex index);
 
+        /**
+         * Update all linking information in a leaf before free it
+         *
+         * This method will not free a leaf actually
+         *
+         * @param leaf the leaf to free
+         * @see updateLinkBeforeFreeNode
+         */
         inline void updateLinkBeforeFreeLeaf(Block &leaf);
+        
+        /**
+         * Update all linking infomation in a node before free it
+         *
+         * This method will not free a leaf actually
+         *
+         * @param node the node to free
+         * @see updateLinkBeforeFreeLeaf
+         */
         inline void updateLinkBeforeFreeNode(Block &node);
 
+        /**
+         * Get a pointer to the content of a key
+         *
+         * If _key_size < sizeof(Key::value) then the pointer returned points to 
+         * `key.value', otherwise the pointer returned is `key.pointer'
+         *
+         * @param key the key to retrive infomation from
+         * @return the pointer pointing to the content of the key
+         */
         inline const Byte* getPointerOfKey(const Key &key);
     public:
         BTree(
@@ -530,28 +671,137 @@ namespace cdb {
 
         ~BTree();
 
+        /**
+         * Get index of root node
+         *
+         * This method should be called to get the latest infomation before flush upper 
+         * structure.
+         *
+         * @return the index of root node
+         */
         BlockIndex getRootIndex() const
         { return _root.index(); }
 
+        /**
+         * Find the lower bound of key
+         *
+         * An Iterator pointing to the first record whose key is not less than `key' is 
+         * returned. If not found, `end()' is returned.
+         *
+         * @param key the key to find
+         * @return an Iterator pointing to the result
+         * @see upperBound
+         */
         Iterator lowerBound(Key key);
+
+        /**
+         * Find the upper bound of key
+         * 
+         * An Iterator pointing to the first record whose key is greater than `key' is 
+         * returned. If not found, `end()' is returned.
+         *
+         * @param key the key to find
+         * @return an Iterator pointing to the result
+         * @see lowerBound
+         */
         Iterator upperBound(Key key);
+
+        /**
+         * Insert a key to the tree
+         *
+         * If the key is already existing in the tree, then an Iterator pointing to it
+         * is returned directly, instead of inserting a new one.
+         *
+         * @param key the key to insert
+         * @return an Iterator pointing to the record
+         */
         Iterator insert(Key key);
+
+        /**
+         * Erase a key in the tree
+         * 
+         * If the key is not found, this method will do nothing.
+         *
+         * @param key the key to erase
+         */
         void erase(Key key);
 
+        /**
+         * Return an Iterator pointing to the first record in the tree.
+         *
+         * If the tree is empty, `end()' is returned
+         *
+         * @return the Iterator
+         * @see end
+         */
         Iterator begin();
+
+        /**
+         * Return an Iterator pointing to the record after the last record in the tree
+         *
+         * @return the Iterator
+         * @see begin
+         */
         Iterator end();
 
+        /**
+         * Invoke `op' on every records in the tree, in increasingly order
+         *
+         * @param op the Operator used to visit records
+         * @see forEach(Iterator _begin, Iterator last, Operator op)
+         * @see forEachReverse(Operator op)
+         * @see forEachReverse(Iterator first, Iterator last, Operator op)
+         */
         inline void forEach(Operator op)
         { forEach(begin(), end(), op); }
 
+        /**
+         * Invoke `op' on every records in the tree, in reverse order
+         *
+         * @param op the Operator used to visit records
+         * @see forEach(Operator op)
+         * @see forEach(Iterator first, Iterator last, Operator op)
+         * @see forEachReverse(Iterator first, Iterator last, Operator op)
+         */
         inline void forEachReverse(Operator op)
         { forEachReverse(begin(), end(), op); }
 
-        void forEach(Iterator b, Iterator e, Operator op);
-        void forEachReverse(Iterator b, Iterator e, Operator op);
+        /**
+         * Invoke `op' on every records between [first, last)
+         *
+         * @param first
+         * @param last
+         * @param op
+         * @see forEach(Operator op)
+         * @see forEachReverse(Operator op)
+         * @see forEachReverse(Iterator first, Iterator last, Operator op)
+         */
+        void forEach(Iterator first, Iterator last, Operator op);
 
+        /**
+         * Invoke `op' on every records between [first, last) in reverse order
+         * 
+         * @param first
+         * @param last
+         * @param op
+         * @see forEach(Operator op)
+         * @see forEach(Iterator first, Iterator last, Operator op)
+         * @see forEachReverse(Operator op)
+         */
+        void forEachReverse(Iterator first, Iterator last, Operator op);
+
+        /**
+         * Reset the whole tree
+         */
         void reset();
 
+        /**
+         * Make a key from a pointer
+         *
+         * @param p pointer to the key object
+         * @return a Key
+         * @see makeKey(const T *p, int length)
+         */
         template<typename T>
         Key makeKey(const T *p)
         {
@@ -569,6 +819,14 @@ namespace cdb {
             return ret;
         }
 
+        /**
+         * Make a key from a pointer, which pointing to an array
+         *
+         * @param p pointer to the key array
+         * @param length the length of key array
+         * @return a Key
+         * @see makeKey(const T *p)
+         */
         template<typename T>
         Key makeKey(const T *p, int length)
         {
@@ -590,6 +848,7 @@ namespace cdb {
             return ret;
         }
 
+        // used to test
         friend class BTreeTest;
     };
 
