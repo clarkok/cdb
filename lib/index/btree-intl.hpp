@@ -4,6 +4,7 @@
 #include "btree.hpp"
 
 using namespace cdb;
+
 namespace cdb {
     struct BTree::NodeHeader
     {
@@ -24,7 +25,52 @@ namespace cdb {
     {
         NodeHeader header;
     };
+
+    inline NodeEntryIterator
+    operator + (const NodeEntryIterator &i, int n)
+    {
+        auto ret = i;
+        return ret += n;
+    }
+
+    inline NodeEntryIterator
+    operator - (const NodeEntryIterator &i, int n)
+    {
+        auto ret = i;
+        return ret -= n;
+    }
+
+    inline NodeEntryIterator
+    operator + (int n, const NodeEntryIterator &i)
+    { return i + n; }
 }
+
+BTree::Key
+BTree::NodeEntryIterator::operator * () const
+{
+    return owner->makeKey(
+            owner->getKeyFromNodeEntry(entry),
+            owner->_key_size
+        );
+}
+
+BTree::NodeEntryIterator &
+BTree::NodeEntryIterator::operator += (int offset)
+{
+    entry += uut->nodeEntrySize() * offset;
+    return *this;
+}
+
+BTree::NodeEntryIterator &
+BTree::NodeEntryIterator::operator -= (int offset)
+{
+    entry -= uut->nodeEntrySize() * offset;
+    return *this;
+}
+
+int
+BTree::NodeEntryIterator::operator - (const NodeEntryIterator &b) const
+{ return (entry - b.entry) / uut->nodeEntrySize(); }
 
 Length
 BTree::maximumEntryPerNode() const
@@ -114,7 +160,7 @@ BTree::getEntryInNodeByIndex(Block &node, Length index)
 { return getFirstEntryInNode(node) + index * nodeEntrySize(); }
 
 BlockIndex
-BTree::findInNode(Block &node, ConstSlice key)
+BTree::findInNode(Block &node, Key key)
 {
     auto *entry_limit = getLimitEntryInNode(node);
     auto *entry = getFirstEntryInNode(node);
@@ -122,26 +168,25 @@ BTree::findInNode(Block &node, ConstSlice key)
     auto ret = getMarkFromNode(node)->before;
 
     for (; entry < entry_limit; entry = nextEntryInNode(entry)) {
-        if (_less(key.content(), getKeyFromNodeEntry(entry))) {
+        if (_less(getPointerOfKey(key), getKeyFromNodeEntry(entry))) {
             return ret;
         }
         ret = *getIndexFromNodeEntry(entry);
     }
 
     assert(getHeaderFromNode(node)->prev ^ getMarkFromNode(node)->before);
-    assert(ret);
 
     return ret;
 }
 
 BTree::Iterator
-BTree::findInLeaf(Block &leaf, ConstSlice key)
+BTree::findInLeaf(Block &leaf, Key key)
 {
     auto *entry_limit = getLimitEntryInLeaf(leaf);
     auto *entry = getFirstEntryInLeaf(leaf);
 
     for (; entry < entry_limit; entry = nextEntryInLeaf(entry)) {
-        if (!_less(getKeyFromLeafEntry(entry), key.content())) {
+        if (!_less(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
             return Iterator(this, leaf, entry - leaf.begin());
         }
     }
@@ -155,7 +200,7 @@ BTree::findInLeaf(Block &leaf, ConstSlice key)
 }
 
 void
-BTree::keepTracingToLeaf(ConstSlice key, BlockStack &path)
+BTree::keepTracingToLeaf(Key key, BlockStack &path)
 {
     path.push(_root);
 
@@ -242,7 +287,7 @@ BTree::splitNode(Block &old_node, Length split_offset)
 }
 
 BTree::Iterator
-BTree::insertInLeaf(Block &leaf, ConstSlice key)
+BTree::insertInLeaf(Block &leaf, Key key)
 {
     auto *header = getHeaderFromNode(leaf);
     auto *current = getLimitEntryInLeaf(leaf);
@@ -255,12 +300,15 @@ BTree::insertInLeaf(Block &leaf, ConstSlice key)
                 insert_point = current,
                 current = prevEntryInLeaf(current)
     ) {
-        if (_less(getKeyFromLeafEntry(current), key.content())) {
+        if (_less(getKeyFromLeafEntry(current), getPointerOfKey(key))) {
             break;
         }
     }
 
-    if (current >= entry_start && _equal(getKeyFromLeafEntry(current), key.content())) {
+    if (
+            current >= entry_start && 
+            _equal(getKeyFromLeafEntry(current), getPointerOfKey(key))
+    ) {
         return Iterator(this, leaf, current - leaf.begin());
     }
 
@@ -273,8 +321,8 @@ BTree::insertInLeaf(Block &leaf, ConstSlice key)
         );
 
     std::copy(
-            key.cbegin(),
-            key.cend(),
+            getPointerOfKey(key),
+            getPointerOfKey(key) + _key_size,
             getKeyFromLeafEntry(insert_point)
         );
 
@@ -282,7 +330,7 @@ BTree::insertInLeaf(Block &leaf, ConstSlice key)
 }
 
 void
-BTree::insertInNode(Block &node, ConstSlice key, BlockIndex index)
+BTree::insertInNode(Block &node, Key key, BlockIndex index)
 {
     auto *header = getHeaderFromNode(node);
     auto *current = getLimitEntryInNode(node);
@@ -295,7 +343,7 @@ BTree::insertInNode(Block &node, ConstSlice key, BlockIndex index)
                 insert_point = current,
                 current = prevEntryInNode(current)
     ) {
-        if (_less(getKeyFromNodeEntry(current), key.content())) {
+        if (_less(getKeyFromNodeEntry(current), getPointerOfKey(key))) {
             break;
         }
     }
@@ -307,8 +355,8 @@ BTree::insertInNode(Block &node, ConstSlice key, BlockIndex index)
         );
 
     std::copy(
-            key.cbegin(),
-            key.cend(),
+            getPointerOfKey(key),
+            getPointerOfKey(key) + _key_size,
             getKeyFromNodeEntry(insert_point)
         );
 
@@ -318,7 +366,7 @@ BTree::insertInNode(Block &node, ConstSlice key, BlockIndex index)
 }
 
 Block
-BTree::newRoot(ConstSlice split_key, Block &before, Block &after)
+BTree::newRoot(Key split_key, Block &before, Block &after)
 {
     Block ret = _accesser->aquire(_accesser->allocateBlock(_root.index()));
     auto *mark = getMarkFromNode(ret);
@@ -333,8 +381,8 @@ BTree::newRoot(ConstSlice split_key, Block &before, Block &after)
     auto *entry = getFirstEntryInNode(ret);
 
     std::copy(
-            split_key.cbegin(),
-            split_key.cend(),
+            getPointerOfKey(split_key),
+            getPointerOfKey(split_key) + _key_size,
             getKeyFromNodeEntry(entry)
         );
 
@@ -382,7 +430,7 @@ BTree::prevIterator(Iterator iter)
 }
 
 void
-BTree::eraseInLeaf(Block &leaf, ConstSlice key)
+BTree::eraseInLeaf(Block &leaf, Key key)
 {
     auto *entry_limit = getLimitEntryInLeaf(leaf);
     auto entry = getFirstEntryInLeaf(leaf);
@@ -391,12 +439,12 @@ BTree::eraseInLeaf(Block &leaf, ConstSlice key)
             entry < entry_limit;
             entry = nextEntryInLeaf(entry)
     ) {
-        if (!_less(getKeyFromLeafEntry(entry), key.content())) {
+        if (!_less(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
             break;
         }
     }
 
-    if (!_equal(getKeyFromLeafEntry(entry), key.content())) {
+    if (!_equal(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
         // key not found
         return;
     }
@@ -412,7 +460,7 @@ BTree::eraseInLeaf(Block &leaf, ConstSlice key)
 }
 
 void
-BTree::eraseInNode(Block &node, ConstSlice key)
+BTree::eraseInNode(Block &node, Key key)
 {
     auto *entry_limit = getLimitEntryInNode(node);
     auto entry = getFirstEntryInNode(node);
@@ -421,7 +469,7 @@ BTree::eraseInNode(Block &node, ConstSlice key)
             entry < entry_limit;
             entry = nextEntryInNode(entry)
     ) {
-        if (!_less(getKeyFromNodeEntry(entry), key.content())) {
+        if (!_less(getKeyFromNodeEntry(entry), getPointerOfKey(key))) {
             break;
         }
     }
@@ -429,11 +477,11 @@ BTree::eraseInNode(Block &node, ConstSlice key)
     auto *header = getHeaderFromNode(node);
 
     assert(
-            _equal(getKeyFromNodeEntry(entry), key.content()) ||
+            _equal(getKeyFromNodeEntry(entry), getPointerOfKey(key)) ||
             header->prev == 0
         );
 
-    if (!_equal(getKeyFromNodeEntry(entry), key.content()) && header->prev == 0) {
+    if (!_equal(getKeyFromNodeEntry(entry), getPointerOfKey(key)) && header->prev == 0) {
         // remove before
         assert(entry == getFirstEntryInNode(node));
         getMarkFromNode(node)->before = *getIndexFromNodeEntry(entry);
@@ -492,7 +540,7 @@ BTree::mergeNode(Block &node, Block &next_node)
 }
 
 void
-BTree::updateKey(Block &node, Byte *new_key, BlockIndex index)
+BTree::updateKey(Block &node, Key new_key, BlockIndex index)
 {
     auto entry_limit = getLimitEntryInNode(node);
     for (
@@ -502,8 +550,8 @@ BTree::updateKey(Block &node, Byte *new_key, BlockIndex index)
     ) {
         if (index == *getIndexFromNodeEntry(entry)) {
             std::copy(
-                    new_key,
-                    new_key + _key_size,
+                    getPointerOfKey(new_key),
+                    getPointerOfKey(new_key) + _key_size,
                     getKeyFromNodeEntry(entry)
                 );
             break;
@@ -542,6 +590,17 @@ BTree::updateLinkBeforeFreeNode(Block &node)
     if (header->next) {
         Block next_node = _accesser->aquire(header->next);
         getHeaderFromNode(next_node)->prev = header->prev;
+    }
+}
+
+const Byte *
+BTree::getPointerOfKey(Key &key)
+{
+    if (sizeof(Key::value) < _key_size) {
+        return key.pointer;
+    }
+    else {
+        return reinterpret_cast<const Byte*>(&key.value);
     }
 }
 

@@ -55,19 +55,18 @@ BTree::reset()
 }
 
 BTree::Iterator
-BTree::lowerBound(ConstSlice key)
+BTree::lowerBound(Key key)
 {
-    assert(key.length() >= _key_size);
     BlockStack path;
     keepTracingToLeaf(key, path);
     return findInLeaf(path.top(), key);
 }
 
 BTree::Iterator
-BTree::upperBound(ConstSlice key)
+BTree::upperBound(Key key)
 { 
     auto iter = lowerBound(key);
-    if (_equal(iter.getKey(), key.content())) {
+    if (_equal(iter.getKey(), getPointerOfKey(key))) {
         return nextIterator(lowerBound(key));
     }
     else {
@@ -76,10 +75,8 @@ BTree::upperBound(ConstSlice key)
 }
 
 BTree::Iterator
-BTree::insert(ConstSlice key)
+BTree::insert(Key key)
 {
-    assert(key.length() >= _key_size);
-
     BlockStack path;
     keepTracingToLeaf(key, path);
 
@@ -89,12 +86,14 @@ BTree::insert(ConstSlice key)
         Length split_offset = getHeaderFromNode(path.top())->entry_count / 2;
         Block new_node = splitLeaf(path.top(), split_offset);
 
-        ConstSlice split_key(
+        Key split_key = makeKey(
                 getKeyFromLeafEntry(getFirstEntryInLeaf(new_node)),
                 _key_size
             );
 
-        if (maximumEntryPerLeaf() > 1 && _less(key.content(), split_key.content())) {
+        if (maximumEntryPerLeaf() > 1 && 
+             _less(getPointerOfKey(key), getPointerOfKey(split_key))
+        ) {
             ret = insertInLeaf(path.top(), key);
         }
         else {
@@ -111,14 +110,14 @@ BTree::insert(ConstSlice key)
             auto split_offset = getHeaderFromNode(path.top())->entry_count / 2;
             new_node = splitNode(path.top(), split_offset);
 
-            if (_less(split_key.content(), getKeyFromNodeEntry(getFirstEntryInNode(new_node)))) {
+            if (_less(getPointerOfKey(split_key), getKeyFromNodeEntry(getFirstEntryInNode(new_node)))) {
                 insertInNode(path.top(), split_key, index_to_insert);
             }
             else {
                 insertInNode(new_node, split_key, index_to_insert);
             }
 
-            split_key = ConstSlice(
+            split_key = makeKey(
                     getKeyFromNodeEntry(getFirstEntryInNode(new_node)),
                     _key_size
                 );
@@ -171,12 +170,18 @@ BTree::forEachReverse(Iterator b, Iterator e, Operator op)
 }
 
 void
-BTree::erase(ConstSlice key)
+BTree::erase(Key key)
 {
-    assert(_first_leaf == 1);
-    assert(key.length() >= _key_size);
-
-    Buffer removal_key(key.cbegin(), key.cend());
+    Buffer removal_key_buffer(_key_size);
+    Key removal_key(key);
+    if (_key_size >= sizeof(Key::value)) {
+        std::copy(
+                key.pointer,
+                key.pointer + _key_size,
+                removal_key_buffer.content()
+            );
+        removal_key.pointer = removal_key_buffer.cbegin();
+    }
 
     BlockStack path;
     keepTracingToLeaf(key, path);
@@ -194,7 +199,14 @@ BTree::erase(ConstSlice key)
         auto *parent_last_entry = getLastEntryInNode(parent);
         auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
 
-        updateKey(path.top(), getKeyFromLeafEntry(getFirstEntryInLeaf(leaf)), leaf.index());
+        updateKey(
+                path.top(),
+                makeKey(
+                    getKeyFromLeafEntry(getFirstEntryInLeaf(leaf)),
+                    _key_size
+                ),
+                leaf.index()
+            );
 
         if (*parent_last_index == leaf.index()) {
             return;
@@ -207,11 +219,19 @@ BTree::erase(ConstSlice key)
             return;
         }
 
-        std::copy(
-                getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)),
-                getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)) + _key_size,
-                removal_key.begin()
-            );
+        if (_key_size >= sizeof(Key::value)) {
+            std::copy(
+                    getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)),
+                    getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)) + _key_size,
+                    removal_key_buffer.content()
+                );
+        }
+        else {
+            removal_key = makeKey(
+                    getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)),
+                    _key_size
+                );
+        }
 
         mergeLeaf(leaf, next_leaf);
         _accesser->freeBlock(next_leaf.index());
@@ -241,7 +261,14 @@ BTree::erase(ConstSlice key)
             auto *parent_last_entry = getLastEntryInNode(parent);
             auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
 
-            updateKey(parent, getKeyFromNodeEntry(getFirstEntryInNode(node)), node.index());
+            updateKey(
+                    parent,
+                    makeKey(
+                        getKeyFromNodeEntry(getFirstEntryInNode(node)),
+                        _key_size
+                    ), 
+                    node.index()
+                );
 
             if (*parent_last_index == node.index()) {
                 return;
@@ -254,11 +281,19 @@ BTree::erase(ConstSlice key)
                 return;
             }
 
-            std::copy(
-                    getKeyFromNodeEntry(getFirstEntryInNode(next_node)),
-                    getKeyFromNodeEntry(getFirstEntryInNode(next_node)) + _key_size,
-                    removal_key.content()
-                );
+            if (_key_size > sizeof(Key::value)) {
+                std::copy(
+                        getKeyFromNodeEntry(getFirstEntryInNode(next_node)),
+                        getKeyFromNodeEntry(getFirstEntryInNode(next_node)) + _key_size,
+                        removal_key_buffer.content()
+                    );
+            }
+            else {
+                removal_key = makeKey(
+                        getKeyFromNodeEntry(getFirstEntryInNode(next_node)),
+                        _key_size
+                    );
+            }
 
             mergeNode(node, next_node);
             _accesser->freeBlock(next_node.index());
