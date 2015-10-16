@@ -54,6 +54,33 @@ int
 BTree::NodeEntryIterator::operator - (const NodeEntryIterator &b) const
 { return (entry - b.entry) / owner->nodeEntrySize(); }
 
+BTree::Key
+BTree::LeafEntryIterator::operator * () const
+{
+    return owner->makeKey(
+            owner->getKeyFromLeafEntry(entry),
+            owner->_key_size
+        );
+}
+
+BTree::LeafEntryIterator &
+BTree::LeafEntryIterator::operator += (int offset)
+{
+    entry += owner->leafEntrySize() * offset;
+    return *this;
+}
+
+BTree::LeafEntryIterator &
+BTree::LeafEntryIterator::operator -= (int offset)
+{
+    entry -= owner->leafEntrySize() * offset;
+    return *this;
+}
+
+int
+BTree::LeafEntryIterator::operator - (const LeafEntryIterator &b) const
+{ return (entry - b.entry) / owner->nodeEntrySize(); }
+
 Length
 BTree::maximumEntryPerNode() const
 { return (Driver::BLOCK_SIZE - sizeof(NodeMark)) / nodeEntrySize(); }
@@ -171,15 +198,6 @@ BTree::findInNode(Block &node, Key key)
     --iter;
 
     return *getIndexFromNodeEntry(iter.entry);
-
-    /*
-    for (; entry < entry_limit; entry = nextEntryInNode(entry)) {
-        if (_less(getPointerOfKey(key), getKeyFromNodeEntry(entry))) {
-            return ret;
-        }
-        ret = *getIndexFromNodeEntry(entry);
-    }
-    */
 }
 
 BTree::Iterator
@@ -188,6 +206,33 @@ BTree::findInLeaf(Block &leaf, Key key)
     auto *entry_limit = getLimitEntryInLeaf(leaf);
     auto *entry = getFirstEntryInLeaf(leaf);
 
+    auto iter = std::lower_bound(
+            LeafEntryIterator(
+                entry,
+                this
+            ),
+            LeafEntryIterator(
+                entry_limit,
+                this
+            ),
+            key,
+            [&] (const Key &a, const Key &b) {
+                return _less(getPointerOfKey(a), getPointerOfKey(b));
+            }
+        );
+
+    if (iter.entry == entry_limit) {
+        return Iterator(
+                this,
+                _accesser->aquire(getHeaderFromNode(leaf)->next),
+                getFirstEntryOffset()
+            );
+    }
+    else {
+        return Iterator(this, leaf, iter.entry - leaf.begin());
+    }
+
+    /*
     for (; entry < entry_limit; entry = nextEntryInLeaf(entry)) {
         if (!_less(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
             return Iterator(this, leaf, entry - leaf.begin());
@@ -200,6 +245,7 @@ BTree::findInLeaf(Block &leaf, Key key)
     else {
         return end();
     }
+    */
 }
 
 void

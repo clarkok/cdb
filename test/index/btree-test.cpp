@@ -352,9 +352,6 @@ TEST_F(BTreeTest, EraseTestLargeAmount)
         *reinterpret_cast<int*>(iter.getValue().content()) = i;
     }
 
-    std::ofstream fout(DUMP_PATH + std::string("-original"));
-    treeDump(fout);
-
     for (int i = 0; i < TEST_LARGE_NUMBER; ++i) {
         uut->erase(uut->makeKey(&i));
     }
