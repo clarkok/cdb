@@ -186,8 +186,9 @@ namespace cdb {
             Byte *entry = nullptr;
             BTree *owner = nullptr;
 
-            NodeEntryIterator() = default;
-            ~NodeEntryIterator() = default;
+            NodeEntryIterator(Byte *entry, BTree *owner)
+                : entry(entry), owner(owner)
+            { }
 
             inline bool
             operator == (const NodeEntryIterator &i) const
@@ -243,6 +244,20 @@ namespace cdb {
             { return this->operator-=(1); }
 
             inline int operator -(const NodeEntryIterator &b) const;
+
+            inline NodeEntryIterator 
+            operator +(int n) const
+            {
+                auto ret = *this;
+                return ret += n;
+            }
+
+            inline NodeEntryIterator
+            operator -(int n) const
+            {
+                auto ret = *this;
+                return ret -= n;
+            }
 
             inline Key 
             operator[] (int offset) const
@@ -415,7 +430,7 @@ namespace cdb {
         inline void updateLinkBeforeFreeLeaf(Block &leaf);
         inline void updateLinkBeforeFreeNode(Block &node);
 
-        inline const Byte* getPointerOfKey(Key &key);
+        inline const Byte* getPointerOfKey(const Key &key);
     public:
         BTree(
                 DriverAccesser *accesser,

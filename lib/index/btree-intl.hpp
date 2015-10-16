@@ -25,24 +25,6 @@ namespace cdb {
     {
         NodeHeader header;
     };
-
-    inline NodeEntryIterator
-    operator + (const NodeEntryIterator &i, int n)
-    {
-        auto ret = i;
-        return ret += n;
-    }
-
-    inline NodeEntryIterator
-    operator - (const NodeEntryIterator &i, int n)
-    {
-        auto ret = i;
-        return ret -= n;
-    }
-
-    inline NodeEntryIterator
-    operator + (int n, const NodeEntryIterator &i)
-    { return i + n; }
 }
 
 BTree::Key
@@ -57,20 +39,20 @@ BTree::NodeEntryIterator::operator * () const
 BTree::NodeEntryIterator &
 BTree::NodeEntryIterator::operator += (int offset)
 {
-    entry += uut->nodeEntrySize() * offset;
+    entry += owner->nodeEntrySize() * offset;
     return *this;
 }
 
 BTree::NodeEntryIterator &
 BTree::NodeEntryIterator::operator -= (int offset)
 {
-    entry -= uut->nodeEntrySize() * offset;
+    entry -= owner->nodeEntrySize() * offset;
     return *this;
 }
 
 int
 BTree::NodeEntryIterator::operator - (const NodeEntryIterator &b) const
-{ return (entry - b.entry) / uut->nodeEntrySize(); }
+{ return (entry - b.entry) / owner->nodeEntrySize(); }
 
 Length
 BTree::maximumEntryPerNode() const
@@ -162,21 +144,42 @@ BTree::getEntryInNodeByIndex(Block &node, Length index)
 BlockIndex
 BTree::findInNode(Block &node, Key key)
 {
+    assert(getHeaderFromNode(node)->prev ^ getMarkFromNode(node)->before);
+
     auto *entry_limit = getLimitEntryInNode(node);
     auto *entry = getFirstEntryInNode(node);
 
-    auto ret = getMarkFromNode(node)->before;
+    if (_less(getPointerOfKey(key), getKeyFromNodeEntry(entry))) {
+        return getMarkFromNode(node)->before;
+    }
 
+    auto iter = std::upper_bound(
+            NodeEntryIterator(
+                entry,
+                this
+            ),
+            NodeEntryIterator(
+                entry_limit,
+                this
+            ),
+            key,
+            [&] (const Key &a, const Key &b) {
+                return _less(getPointerOfKey(a), getPointerOfKey(b));
+            }
+        );
+
+    --iter;
+
+    return *getIndexFromNodeEntry(iter.entry);
+
+    /*
     for (; entry < entry_limit; entry = nextEntryInNode(entry)) {
         if (_less(getPointerOfKey(key), getKeyFromNodeEntry(entry))) {
             return ret;
         }
         ret = *getIndexFromNodeEntry(entry);
     }
-
-    assert(getHeaderFromNode(node)->prev ^ getMarkFromNode(node)->before);
-
-    return ret;
+    */
 }
 
 BTree::Iterator
@@ -594,7 +597,7 @@ BTree::updateLinkBeforeFreeNode(Block &node)
 }
 
 const Byte *
-BTree::getPointerOfKey(Key &key)
+BTree::getPointerOfKey(const Key &key)
 {
     if (sizeof(Key::value) < _key_size) {
         return key.pointer;
