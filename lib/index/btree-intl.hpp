@@ -6,25 +6,29 @@
 using namespace cdb;
 
 namespace cdb {
+    /**
+     * Gerneral header for each node
+     */
     struct BTree::NodeHeader
     {
         bool node_is_leaf : 1;
-        unsigned int node_length : 7;
+        unsigned int node_length : 7;   /** currently all node_length is 1 */
         unsigned int entry_count : 24;
-        BlockIndex prev;
-        BlockIndex next;
+        BlockIndex prev;                /** only first node in each level whose `prev' can be zero */
+        BlockIndex next;                /** only last node in each level whose `next' can be zero */
     };
 
+    /**
+     * Mark for Node
+     */
     struct BTree::NodeMark
     {
         NodeHeader header;
-        BlockIndex before;
+        BlockIndex before;  /** only first node in each level has a `before' */
     };
 
     struct BTree::LeafMark
-    {
-        NodeHeader header;
-    };
+    { NodeHeader header; };
 }
 
 BTree::Key
@@ -181,14 +185,8 @@ BTree::findInNode(Block &node, Key key)
     }
 
     auto iter = std::upper_bound(
-            NodeEntryIterator(
-                entry,
-                this
-            ),
-            NodeEntryIterator(
-                entry_limit,
-                this
-            ),
+            NodeEntryIterator(entry, this),
+            NodeEntryIterator(entry_limit, this),
             key,
             [&] (const Key &a, const Key &b) {
                 return _less(getPointerOfKey(a), getPointerOfKey(b));
@@ -207,14 +205,8 @@ BTree::findInLeaf(Block &leaf, Key key)
     auto *entry = getFirstEntryInLeaf(leaf);
 
     auto iter = std::lower_bound(
-            LeafEntryIterator(
-                entry,
-                this
-            ),
-            LeafEntryIterator(
-                entry_limit,
-                this
-            ),
+            LeafEntryIterator(entry, this),
+            LeafEntryIterator(entry_limit, this),
             key,
             [&] (const Key &a, const Key &b) {
                 return _less(getPointerOfKey(a), getPointerOfKey(b));
@@ -231,21 +223,6 @@ BTree::findInLeaf(Block &leaf, Key key)
     else {
         return Iterator(this, leaf, iter.entry - leaf.begin());
     }
-
-    /*
-    for (; entry < entry_limit; entry = nextEntryInLeaf(entry)) {
-        if (!_less(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
-            return Iterator(this, leaf, entry - leaf.begin());
-        }
-    }
-
-    if (leaf.index() != _last_leaf) {
-        return Iterator(this, _accesser->aquire(getHeaderFromNode(leaf)->next), getFirstEntryOffset());
-    }
-    else {
-        return end();
-    }
-    */
 }
 
 void
