@@ -1,5 +1,8 @@
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-inline -Wno-unused-const-variable")
-if (CMAKE_COMPILER_IS_GNUCXX)
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-inline -Wno-unused-const-variable")
+endif ()
+
+if (Coverage)
     set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-modules)
     include(CodeCoverage)
     setup_target_for_coverage(coverage test-main coverage)

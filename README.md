@@ -2,8 +2,6 @@ A simple but fast SQL database. In development.
 
 ## Building
 
-Dependence: `gtest-1.7.0`, `gcov`, `lcov`
-
 ```
 git clone https://github.com/clarkok/cdb.git
 cd cdb
@@ -15,18 +13,22 @@ make
 
 ## Testing
 
+Dependence: `gtest-1.7.0` `google-proftools`
+
 ```
-# under cdb/build or somewhere else
+cmake -DTest=ON
 make test
 
-# if you want to see details, run under cdb/build
+# if you want to see details
 ./test/test-main
 ```
 
 ## Counting test Coverage
 
+Dependence: `gtest-1.7.0` `google-proftools` `gcov`, `lcov`
+
 ```
-# under cdb/build
+cmake -DTest=ON -DCoverage
 make coverage
 open coverage/index.html
 ```
