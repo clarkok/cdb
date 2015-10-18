@@ -659,6 +659,11 @@ namespace cdb {
          * @return the pointer pointing to the content of the key
          */
         inline const Byte* getPointerOfKey(const Key &key);
+
+        /**
+         * Clean a node and its subtree, free all blocks
+         */
+        void cleanNodeRecursive(Block &node);
     public:
         BTree(
                 DriverAccesser *accesser,
@@ -794,6 +799,11 @@ namespace cdb {
          * Reset the whole tree
          */
         void reset();
+
+        /**
+         * Remove the whole tree
+         */
+        void clean();
 
         /**
          * Make a key from a pointer

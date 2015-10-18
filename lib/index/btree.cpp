@@ -40,8 +40,9 @@ BTree::~BTree()
 void
 BTree::reset()
 {
-    // TODO release all other blocks
+    clean();
 
+    _root = _accesser->aquire(_accesser->allocateBlock());
     auto *header = getHeaderFromNode(_root);
     *header = {
         true,   // node_is_leaf
@@ -52,6 +53,13 @@ BTree::reset()
     };
 
     _first_leaf = _last_leaf = _root.index();
+}
+
+void
+BTree::clean()
+{
+    cleanNodeRecursive(_root);
+    _root = _accesser->aquire(0);
 }
 
 BTree::Iterator
@@ -167,6 +175,26 @@ BTree::forEachReverse(Iterator b, Iterator e, Operator op)
         e = prevIterator(std::move(e));
         op(e);
     }
+}
+
+void
+BTree::cleanNodeRecursive(Block &node)
+{
+    auto *header = getHeaderFromNode(node);
+    if (header->node_is_leaf) {
+        _accesser->freeBlock(node.index());
+        return;
+    }
+
+    auto entry = getFirstEntryInNode(node);
+    auto entry_limit = getLimitEntryInNode(node);
+
+    for (; entry < entry_limit; entry = nextEntryInNode(entry)) {
+        Block node = _accesser->aquire(*getIndexFromNodeEntry(entry));
+        cleanNodeRecursive(node);
+    }
+
+    _accesser->freeBlock(node.index());
 }
 
 void
