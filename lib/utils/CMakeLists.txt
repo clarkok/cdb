@@ -1,1 +1,1 @@
-add_library(utils STATIC buffer.cpp slice.cpp)
+add_library(utils STATIC buffer.cpp slice.cpp hash.cpp)

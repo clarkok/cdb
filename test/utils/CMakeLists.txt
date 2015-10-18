@@ -9,4 +9,5 @@
 set(UTILS_TEST_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/buffer-test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/slice-test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hash-test.cpp
     PARENT_SCOPE)
