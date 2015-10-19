@@ -1,8 +1,6 @@
 #ifndef _DB_INDEX_BTREE_H_
 #define _DB_INDEX_BTREE_H_
 
-#include <gtest/gtest_prod.h>
-
 #include <cassert>
 #include <vector>
 #include <stack>
