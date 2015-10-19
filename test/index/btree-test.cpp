@@ -4,7 +4,9 @@
 #include <fstream>
 #include <cstdio>
 #include <vector>
+#include <random>
 
+#include "../test-inc.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
 #include "lib/driver/basic-driver.hpp"
 #include "lib/driver/basic-accesser.hpp"
@@ -14,10 +16,10 @@
 
 using namespace cdb;
 
-static const char DUMP_PATH[] = "/tmp/btree-dump.txt";
-static const char TEST_PATH[] = "/tmp/btree-test.tmp";
+static const char DUMP_PATH[] = TMP_PATH_PREFIX "btree-dump.txt";
+static const char TEST_PATH[] = TMP_PATH_PREFIX "btree-test.tmp";
 static const int TEST_NUMBER = 512;
-static const int TEST_LARGE_NUMBER = 10000;    // tested up to 1000000, make it small to reduce test time
+static const int TEST_LARGE_NUMBER = 1000000;    // tested up to 1000000, make it small to reduce test time
 
 namespace cdb {
     class BTreeTest : public ::testing::Test

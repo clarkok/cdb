@@ -2,12 +2,13 @@
 #include <memory>
 #include <cstdio>
 
+#include "../test-inc.hpp"
 #include "lib/driver/basic-driver.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
 
 using namespace cdb;
 
-static const char TEST_PATH[] = "/tmp/bitmap-allocator-test.tmp";
+static const char TEST_PATH[] = TMP_PATH_PREFIX "bitmap-allocator-test.tmp";
 
 class BitmapAllocatorTest : public ::testing::Test
 {

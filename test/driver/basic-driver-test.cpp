@@ -2,11 +2,12 @@
 #include <cstring>
 #include <cstdio>
 
+#include "../test-inc.hpp"
 #include "lib/driver/basic-driver.hpp"
 
 using namespace cdb;
 
-static const char TEST_PATH[] = "/tmp/basic-driver-test.tmp";
+static const char TEST_PATH[] = TMP_PATH_PREFIX "basic-driver-test.tmp";
 static const char TEST_STRING[] = "Hello world";
 static const int MULTIPLE_TIME = 10;
 

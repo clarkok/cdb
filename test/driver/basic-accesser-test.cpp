@@ -3,13 +3,15 @@
 #include <cstring>
 #include <cstdio>
 
+#include "../test-inc.hpp"
+
 #include "lib/driver/bitmap-allocator.hpp"
 #include "lib/driver/basic-accesser.hpp"
 #include "lib/driver/basic-driver.hpp"
 
 using namespace cdb;
 
-static const char TEST_PATH[] = "/tmp/basic-allocator-test.tmp";
+static const char TEST_PATH[] = TMP_PATH_PREFIX "basic-allocator-test.tmp";
 static const char TEST_STRING[] = "Hello World!";
 
 class BasicAccesserTest : public ::testing::Test
