@@ -8,13 +8,84 @@ namespace cdb {
     {
         struct Header;
         struct BlockHeader;
-
         DriverAccesser *_accesser;
         Block _head;
         Length _value_size;
 
         Header *_header;
 
+    public:
+        class Iterator
+        {
+            LinearTable *_owner;
+            Block _block;
+            Byte *_entry;
+
+            Iterator(LinearTable *owner, Block block, Byte *entry);
+
+            Iterator(const Iterator &) = delete;
+            Iterator &operator = (const Iterator &) = delete;
+
+            friend class LinearTable;
+
+        public:
+            ~Iterator() = default;
+
+            Iterator(Iterator &&iter)
+                : _owner(iter._owner), _block(std::move(iter._block)), _entry(iter._entry)
+            { }
+
+            Iterator &
+            operator = (Iterator &&iter)
+            {
+                _owner = iter._owner;
+                _block = std::move(iter._block);
+                _entry = iter._entry;
+            }
+
+            inline Slice
+            operator *() const
+            { return Slice(_entry, _owner->_value_size); }
+
+            inline Iterator &
+            operator ++()
+            { return (*this = _owner->nextIterator(*this)); }
+
+            inline Iterator &
+            operator --()
+            { return (*this = _owner->prevIterator(*this)); }
+
+            inline Iterator
+            operator ++(int)
+            {
+                auto ret = _owner->nextIterator(*this);
+                std::swap(ret, *this);
+                return ret;
+            }
+
+            inline Iterator
+            operator --(int)
+            {
+                auto ret = _owner->nextIterator(*this);
+                std::swap(ret, *this);
+                return ret;
+            }
+
+            inline bool
+            operator == (const Iterator &b)
+            {
+                return 
+                    (_block.index() == b._block.index()) &&
+                    (_entry == b._entry) &&
+                    (_owner == b._owner);
+            }
+
+            inline bool
+            operator != (const Iterator &b)
+            { return !this->operator==(b); }
+
+        };
+    private:
         inline Header *getHeaderOfHead(Block &head);
         inline Length getMaximumRecordCountByBlockIndex(BlockIndex index) const;
         inline Length getMaximumRecordCountInHead() const;
@@ -29,6 +100,12 @@ namespace cdb {
         inline Block fetchPrimaryIndexedBlock(BlockIndex primary_index, BlockIndex offset);
         inline Block fetchSecondaryIndexedBlock(BlockIndex secondary_index, BlockIndex offset);
         inline Block fetchTertiaryIndexedBlock(BlockIndex tertiary_index, BlockIndex offset);
+
+        inline Byte* getFirstEntry(Block &block);
+        inline Byte* getLimitEntry(Block &block);
+
+        Iterator nextIterator(const Iterator &i);
+        Iterator prevIterator(const Iterator &i);
     public:
         LinearTable(
                 DriverAccesser *accesser,
@@ -37,6 +114,9 @@ namespace cdb {
             );
 
         void reset();
+
+        Iterator begin();
+        Iterator end();
     };
 }
 

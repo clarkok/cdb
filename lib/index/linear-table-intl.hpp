@@ -119,4 +119,11 @@ LinearTable::fetchTertiaryIndexedBlock(BlockIndex tertiary_index, BlockIndex off
         );
 }
 
+Byte *
+LinearTable::getFirstEntry(Block &block)
+{
+    return block.content() + sizeof(BlockHeader) + 
+        (block.index() == _head.index() ? sizeof(Header) : 0);
+}
+
 #endif // _DB_INDEX_LINEAR_TABLE_INTL_H_

@@ -2,6 +2,10 @@
 
 using namespace cdb;
 
+LinearTable::Iterator::Iterator(LinearTable *owner, Block block, Byte *entry)
+    : _owner(owner), _block(block), _entry(entry)
+{ }
+
 LinearTable::LinearTable(
         DriverAccesser *accesser,
         BlockIndex head_index,
@@ -24,4 +28,18 @@ LinearTable::reset()
         0,              // secondary
         0               // tertiary
     };
+}
+
+LinearTable::Iterator
+LinearTable::begin()
+{
+    Block block = _head;
+    Byte *entry = getFirstEntry(block);
+    return Iterator(this, std::move(block), entry);
+}
+
+LinearTable::Iterator
+LinearTable::end()
+{
+    Block block = fetchBlockByIndex(_header->block_count - 1);
 }
