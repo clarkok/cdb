@@ -11,8 +11,7 @@ using cdb::BlockIndex;
     #define cdb_count_leading_zero_32(x) (x ? __builtin_clz(x) : 32)
 #elif defined __clang__
     #define cdb_count_leading_zero_32(x) (x ? __builtin_clz(x) : 32)
-#elif defined MSVC
-
+#elif defined _MSC_VER
     #include <intrin.h>
     #pragma intrinsic(_BitScanReverse)
 

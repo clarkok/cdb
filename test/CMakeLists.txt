@@ -22,6 +22,6 @@ add_executable(test-main test-main.cpp ${UTILS_TEST_SRCS} ${DRIVER_TEST_SRCS} ${
 if ("${CMAKE_CXX_COMPILER_ID}" EQUAL "MSVC")
     target_link_libraries(test-main gtest utils driver index)
 else ()
-    target_link_libraries(test-main gtest pthread utils driver index profiler)
+    target_link_libraries(test-main gtest pthread utils driver index)
 endif ()
 add_test(MainTest test-main)
