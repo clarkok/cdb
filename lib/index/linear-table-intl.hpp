@@ -126,4 +126,55 @@ LinearTable::getFirstEntry(Block &block)
         (block.index() == _head.index() ? sizeof(Header) : 0);
 }
 
+Byte *
+LinearTable::getLimitEntry(Block &block)
+{
+    auto *header = getHeaderFromBlock(block);
+    return getFirstEntry(block) + header->record_count * _value_size;
+}
+
+LinearTable::BlockHeader *
+LinearTable::getHeaderFromBlock(Block &block)
+{
+    if (block.index() == _head.index()) {
+        return reinterpret_cast<BlockHeader*>(block.content() + sizeof(Header));
+    }
+    else {
+        return reinterpret_cast<BlockHeader*>(block.content());
+    }
+}
+
+LinearTable::Iterator
+LinearTable::nextIterator(Iterator i)
+{
+    if ((i._entry += _value_size) >= getLimitEntry(i._block)) {
+        if (++(i._block_index) == _header->block_count) {
+            i._block_index = _header->block_count - 1;
+        }
+        else {
+            i._block = fetchBlockByIndex(i._block_index);
+            i._entry = getFirstEntry(i._block);
+        }
+    }
+    return i;
+}
+
+LinearTable::Iterator
+LinearTable::prevIterator(Iterator i)
+{
+    if (i._entry <= getFirstEntry(i._block)) {
+        if (i._block_index == 0) {
+            return end();
+        }
+        else {
+            i._block = fetchBlockByIndex(--(i._block_index));
+            i._entry = getLimitEntry(i._block) - _value_size;
+        }
+    }
+    else {
+        i._entry -= _value_size;
+    }
+    return i;
+}
+
 #endif // _DB_INDEX_LINEAR_TABLE_INTL_H_

@@ -20,10 +20,18 @@ namespace cdb {
             LinearTable *_owner;
             Block _block;
             Byte *_entry;
+            BlockIndex _block_index;
 
-            Iterator(LinearTable *owner, Block block, Byte *entry);
+            Iterator(LinearTable *owner, Block block, Byte *entry, BlockIndex block_index);
 
-            Iterator(const Iterator &) = delete;
+            // 只许州官放火，不许百姓点灯
+            Iterator(const Iterator &iter)
+                : _owner(iter._owner),
+                  _block(iter._block),
+                  _entry(iter._entry),
+                  _block_index(iter._block_index)
+            { }
+
             Iterator &operator = (const Iterator &) = delete;
 
             friend class LinearTable;
@@ -32,7 +40,10 @@ namespace cdb {
             ~Iterator() = default;
 
             Iterator(Iterator &&iter)
-                : _owner(iter._owner), _block(std::move(iter._block)), _entry(iter._entry)
+                : _owner(iter._owner),
+                  _block(std::move(iter._block)),
+                  _entry(iter._entry),
+                  _block_index(iter._block_index)
             { }
 
             Iterator &
@@ -41,6 +52,8 @@ namespace cdb {
                 _owner = iter._owner;
                 _block = std::move(iter._block);
                 _entry = iter._entry;
+                _block_index = iter._block_index;
+                return *this;
             }
 
             inline Slice
@@ -49,25 +62,25 @@ namespace cdb {
 
             inline Iterator &
             operator ++()
-            { return (*this = _owner->nextIterator(*this)); }
+            { return (*this = _owner->nextIterator(std::move(*this))); }
 
             inline Iterator &
             operator --()
-            { return (*this = _owner->prevIterator(*this)); }
+            { return (*this = _owner->prevIterator(std::move(*this))); }
 
             inline Iterator
             operator ++(int)
             {
-                auto ret = _owner->nextIterator(*this);
-                std::swap(ret, *this);
+                auto ret(*this);
+                this->operator++();
                 return ret;
             }
 
             inline Iterator
             operator --(int)
             {
-                auto ret = _owner->nextIterator(*this);
-                std::swap(ret, *this);
+                auto ret(*this);
+                this->operator--();
                 return ret;
             }
 
@@ -75,7 +88,7 @@ namespace cdb {
             operator == (const Iterator &b)
             {
                 return 
-                    (_block.index() == b._block.index()) &&
+                    (_block_index == b._block_index) &&
                     (_entry == b._entry) &&
                     (_owner == b._owner);
             }
@@ -101,11 +114,17 @@ namespace cdb {
         inline Block fetchSecondaryIndexedBlock(BlockIndex secondary_index, BlockIndex offset);
         inline Block fetchTertiaryIndexedBlock(BlockIndex tertiary_index, BlockIndex offset);
 
+        inline BlockHeader *getHeaderFromBlock(Block &block);
+
         inline Byte* getFirstEntry(Block &block);
         inline Byte* getLimitEntry(Block &block);
 
-        Iterator nextIterator(const Iterator &i);
-        Iterator prevIterator(const Iterator &i);
+        Iterator nextIterator(Iterator i);
+        Iterator prevIterator(Iterator i);
+
+        inline BlockIndex splitDirect(BlockIndex index);
+        inline BlockIndex splitPrimary(BlockIndex index);
+        inline BlockIndex splitSecondary(BlockIndex index);
     public:
         LinearTable(
                 DriverAccesser *accesser,
@@ -117,6 +136,12 @@ namespace cdb {
 
         Iterator begin();
         Iterator end();
+
+        Iterator insert(const Iterator &iter);
+
+        inline Iterator
+        insert()
+        { return insert(end()); }
     };
 }
 
