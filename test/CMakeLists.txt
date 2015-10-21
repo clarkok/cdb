@@ -3,7 +3,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang")
 endif ()
 
 if (Coverage)
-    set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-modules)
+    set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party/cmake-modules)
     include(CodeCoverage)
     setup_target_for_coverage(coverage test-main coverage)
 endif()

@@ -1,9 +1,9 @@
-[submodule "cmake-modules"]
-	path = cmake-modules
-	url = https://github.com/bilke/cmake-modules.git
 [submodule "test/gtest-1.7.0"]
 	path = test/gtest-1.7.0
 	url = https://github.com/google/googletest.git
 [submodule "third-party/pegtl"]
 	path = third-party/pegtl
 	url = https://github.com/ColinH/PEGTL.git
+[submodule "third-party/cmake-modules"]
+	path = third-party/cmake-modules
+	url = https://github.com/bilke/cmake-modules.git
