@@ -13,6 +13,8 @@ namespace parser {
     struct UnknownSchemaDeclError : ParseError
     { };
 
+    struct UnknownFieldPropertyError : ParseError
+    { };
 }
 
 }

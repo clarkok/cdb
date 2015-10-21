@@ -3,23 +3,34 @@
 
 #include "third-party/pegtl/pegtl.hh"
 
+#include "keyword.hpp"
+
 namespace cdb {
 
 namespace parser {
-    struct spacing
-        : pegtl::plus<pegtl::space> { };
+    template<typename T>
+    struct token
+        : pegtl::seq<
+            pegtl::not_at<pegtl::space>,
+            T,
+            pegtl::star<pegtl::space>
+        > { };
 
     struct number
         : pegtl::plus<pegtl::digit> { };
 
+    struct identifier
+        : pegtl::seq<pegtl::not_at<keyword>, pegtl::identifier> { };
+
+    struct comma
+        : token<pegtl::one<','> > { };
+
     template<typename T>
     struct parenthesis
         : pegtl::seq<
-            pegtl::one<'('>,
-            pegtl::opt<spacing>,
+            token<pegtl::one<'('> >,
             T,
-            pegtl::opt<spacing>,
-            pegtl::one<')'>
+            token<pegtl::one<')'> >
         > { };
 }
 

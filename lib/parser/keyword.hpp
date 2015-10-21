@@ -9,6 +9,7 @@ namespace parser {
 
 #define KEY(key)    struct key_##key : pegtl_istring_t(#key) { }
     KEY(and);
+    KEY(auto_increment);
     KEY(by);
     KEY(char);
     KEY(create);
@@ -22,6 +23,7 @@ namespace parser {
     KEY(order);
     KEY(primary);
     KEY(select);
+    KEY(table);
     KEY(text);
     KEY(unique);
     KEY(update);
@@ -36,6 +38,7 @@ namespace parser {
         : key<
             pegtl::sor<
                 key_and,
+                key_auto_increment,
                 key_by,
                 key_char,
                 key_create,
@@ -50,6 +53,7 @@ namespace parser {
                 key_primary,
                 key_select,
                 key_text,
+                key_table,
                 key_unique,
                 key_update,
                 key_where

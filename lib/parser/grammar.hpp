@@ -12,23 +12,22 @@ namespace cdb {
 namespace parser {
 
     struct field_name
-        : pegtl::seq<pegtl::not_at<keyword>, pegtl::identifier> { };
+        : token<identifier> { };
 
     struct field_type_int
-        : key<key_int> { };
+        : token<key<key_int> > { };
 
     struct field_type_float
-        : key<key_float> { };
+        : token<key<key_float> > { };
 
     struct field_type_char
         : pegtl::seq<
-            key<key_char>,
-            pegtl::opt<spacing>,
-            parenthesis<number>
+            token<key<key_char> >,
+            parenthesis<token<number> >
         > { };
 
     struct field_type_text
-        : key<key_text> { };
+        : token<key<key_text> > { };
 
     struct field_type
         : pegtl::sor<
@@ -39,23 +38,27 @@ namespace parser {
             pegtl::raise<UnknownTypeError>
         > { };
 
+    struct field_property
+        : pegtl::if_must<
+            pegtl::not_at<comma>,
+            pegtl::sor<
+                token<key<key_unique> >,
+                token<key<key_auto_increment> >,
+                pegtl::raise<UnknownFieldPropertyError>
+            >
+        > { };
+
     struct field_decl
         : pegtl::seq<
             field_name,
-            spacing,
             field_type,
-            pegtl::opt<
-                spacing,
-                key<key_unique>
-            >
+            pegtl::star<field_property>
         > { };
 
     struct primary_decl
         : pegtl::seq<
-            key<key_primary>,
-            spacing,
-            key<key_key>,
-            pegtl::opt<spacing>,
+            token<key<key_primary> >,
+            token<key<key_key> >,
             parenthesis<field_name>
         > { };
 
@@ -70,11 +73,20 @@ namespace parser {
         : pegtl::seq<
             schema_decl_item,
             pegtl::star<
-                pegtl::opt<spacing>,
-                pegtl::one<','>,
-                pegtl::opt<spacing>,
+                comma,
                 schema_decl_item
             >
+        > { };
+
+    struct table_name
+        : token<identifier> { };
+
+    struct create_table_stmt
+        : pegtl::seq<
+            token<key<key_create> >,
+            token<key<key_table> >,
+            table_name,
+            parenthesis<schema_decl>
         > { };
 }
 
