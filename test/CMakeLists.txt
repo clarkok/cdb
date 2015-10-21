@@ -15,10 +15,17 @@ include_directories(${gtest_SOURCE_DIR}/include)
 add_subdirectory(utils)
 add_subdirectory(driver)
 add_subdirectory(index)
+add_subdirectory(parser)
 
 find_library(profiler profiler /usr/lib)
 
-add_executable(test-main test-main.cpp ${UTILS_TEST_SRCS} ${DRIVER_TEST_SRCS} ${INDEX_TEST_SRCS})
+add_executable(test-main test-main.cpp 
+    ${UTILS_TEST_SRCS} 
+    ${DRIVER_TEST_SRCS}
+    ${INDEX_TEST_SRCS}
+    ${PARSER_TEST_SRCS}
+    )
+
 if ("${CMAKE_CXX_COMPILER_ID}" EQUAL "MSVC")
     target_link_libraries(test-main gtest utils driver index)
 else ()

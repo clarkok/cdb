@@ -1,1 +1,1 @@
-add_library(table STATIC table.cpp)
+add_library(table STATIC table.cpp schema.cpp)

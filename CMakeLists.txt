@@ -3,8 +3,16 @@ project (cdb)
 
 set (CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
+if (APPLE)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+endif ()
+
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang")
-    set (CMAKE_CXX_FLAGS " -std=c++11 -g -Wall -Wextra")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -Wall -Wextra")
+endif ()
+
+if (CYGWIN)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 endif ()
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")

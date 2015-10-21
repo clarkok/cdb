@@ -1,7 +1,11 @@
 #ifndef _DB_UTILS_BUFFER_H_
 #define _DB_UTILS_BUFFER_H_
 
-#include <cstdint>
+#ifdef __APPLE__
+#   include <tr1/cstdint>
+#else
+#   include <cstdint>
+#endif
 #include <memory>
 
 namespace cdb {
