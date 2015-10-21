@@ -2,15 +2,14 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-inline -Wno-unused-const-variable -Wno-sign-compare")
 endif ()
 
+set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party)
 if (Coverage)
-    set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party/cmake-modules)
-    include(CodeCoverage)
+    include(cmake-modules/CodeCoverage)
     setup_target_for_coverage(coverage test-main coverage)
 endif()
 
 find_package(Threads REQUIRED)
 
-add_subdirectory(gtest-1.7.0)
 include_directories(${gtest_SOURCE_DIR}/include)
 add_subdirectory(utils)
 add_subdirectory(driver)
