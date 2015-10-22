@@ -88,6 +88,35 @@ namespace parser {
             table_name,
             parenthesis<schema_decl>
         > { };
+
+    struct value_number
+        : pegtl::seq<
+            pegtl::opt<pegtl::one<'+', '-'> >,
+            pegtl::plus<pegtl::digit>,
+            pegtl::opt<
+                dot,
+                pegtl::star<pegtl::digit>
+            >
+            pegtl::opt<
+                exp,
+                pegtl::plus<pegtl::digit>
+            >
+        > { };
+
+    struct single : pegtl::one< 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', '"', '\'', '0', '\n' > {};
+    struct spaces : pegtl::seq< pegtl::one< 'z' >, pegtl::star< pegtl::space > > {};
+    struct hexbyte : pegtl::if_must< pegtl::one< 'x' >, pegtl::xdigit, pegtl::xdigit > {};
+    struct decbyte : pegtl::if_must< pegtl::digit, pegtl::rep_opt< 2, pegtl::digit > > {};
+    struct unichar : pegtl::if_must< pegtl::one< 'u' >, pegtl::one< '{' >, pegtl::plus< pegtl::xdigit >, pegtl::one< '}' > > {};
+    struct escaped : pegtl::if_must< pegtl::one< '\\' >, pegtl::sor< hexbyte, decbyte, unichar, single, spaces > > {};
+    struct regular : pegtl::not_one< '\r', '\n' > {};
+    struct character : pegtl::sor< escaped, regular > {};
+
+    struct value_string
+        : pegtl::if_must<
+            pegtl::if_must<pegtl::one<'\''>,
+            pegtl::until<'\''>, character > >
+        > { };
 }
 
 }

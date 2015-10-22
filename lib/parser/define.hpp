@@ -25,6 +25,12 @@ namespace parser {
     struct comma
         : token<pegtl::one<','> > { };
 
+    struct dot
+        : token<pegtl::one<'.'> > { };
+
+    struct exp
+        : token<pegtl::one<'e'> > { };
+
     template<typename T>
     struct parenthesis
         : pegtl::seq<
