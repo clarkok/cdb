@@ -117,6 +117,23 @@ namespace parser {
             pegtl::if_must<pegtl::one<'\''>,
             pegtl::until<'\''>, character > >
         > { };
+
+    struct value
+        : pegtl::sor<
+            value_number,
+            value_string
+        > { };
+
+    struct value_row
+        : parenthesis<
+            pegtl::seq<
+                value,
+                pegtl::star<
+                    comma,
+                    value
+                >
+            >
+        > { };
 }
 
 }
