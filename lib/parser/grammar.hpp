@@ -125,15 +125,10 @@ namespace parser {
         > { };
 
     struct value_row
-        : parenthesis<
-            pegtl::seq<
-                value,
-                pegtl::star<
-                    comma,
-                    value
-                >
-            >
-        > { };
+        : list<value> { };
+
+    struct field_list
+        : list<field_name> { };
 }
 
 }

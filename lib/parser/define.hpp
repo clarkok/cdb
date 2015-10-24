@@ -38,6 +38,18 @@ namespace parser {
             T,
             token<pegtl::one<')'> >
         > { };
+
+    template<typename T>
+    struct list
+        : parenthesis<
+            pegtl::seq<
+                T,
+                pegtl::star<
+                    comma,
+                    T
+                >
+            >
+        > { };
 }
 
 }
