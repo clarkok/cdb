@@ -5,8 +5,10 @@
 #include <string>
 #include <vector>
 
+#include "lib/utils/slice.hpp"
+
 namespace cdb {
-    enum class FieldType
+    enum class FieldTypeSpec
     {
         UNKNOWN,
         INTEGER,
@@ -15,21 +17,49 @@ namespace cdb {
         TEXT
     };
 
+    struct FieldType
+    {
+        FieldTypeSpec spec;
+        unsigned int length : sizeof(FieldTypeSpec) * 8;
+
+        FieldType(FieldTypeSpec spec, unsigned int length = 255)
+            : spec(spec), length(length)
+        { }
+    };
+
+    static_assert(sizeof(FieldTypeSpec) * 8 <= 32, "FieldTypeSpec too large, won't compile.");
+
     struct Field
     {
         FieldType type;
         std::string name;
     };
 
+    class Column
+    {
+        Field *_fields;
+        std::size_t _offset;
+    public:
+        Column(Field *field, std::size_t offset);
+
+        template<typename T>
+        T *toValue(Slice row)
+        { return *reinterpret_cast<T*>(row.content() + _offset); }
+    };
+
     class Schema
     {
         std::vector<Field> _fields;
         int _primary = -1;
+        bool _primary_auto_increment;
+        int _primary_autoinc_value;
 
         Schema() = default;
     public:
-        static constexpr std::size_t getFieldSizeByType(FieldType type);
+        static std::size_t getFieldSizeByType(FieldType type);
         std::size_t getRecordSize() const;
+
+        Column getColumnByName(std::string name);
 
         friend class SchemaFactory;
     };

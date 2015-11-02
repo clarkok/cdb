@@ -1,6 +1,22 @@
 #ifndef _DB_PARSER_GRAMMAR_H_
 #define _DB_PARSER_GRAMMAR_H_
 
+#ifdef __CYGWIN__
+#include <sstream>
+#include <string>
+namespace std
+{
+    template <typename T>
+    std::string
+    to_string(T value)
+    {
+        std::stringstream sout;
+        sout << value;
+        return sout.str();
+    }
+}
+#endif
+
 #include "third-party/pegtl/pegtl.hh"
 
 #include "error.hpp"
@@ -96,7 +112,7 @@ namespace parser {
             pegtl::opt<
                 dot,
                 pegtl::star<pegtl::digit>
-            >
+            >,
             pegtl::opt<
                 exp,
                 pegtl::plus<pegtl::digit>
@@ -114,8 +130,8 @@ namespace parser {
 
     struct value_string
         : pegtl::if_must<
-            pegtl::if_must<pegtl::one<'\''>,
-            pegtl::until<'\''>, character > >
+            pegtl::if_must<pegtl::one<'\''> >,
+            pegtl::until<pegtl::one<'\''>, character >
         > { };
 
     struct value

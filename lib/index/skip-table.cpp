@@ -6,13 +6,16 @@
 
 using namespace cdb;
 
+/**
+ * Base class for NonLeaf & Leaf
+ */
 struct SkipTable::Node
 {
-    NonLeaf *parent;
-    bool is_leaf;
-    Leaf *leaf;
-    Node *next;
-    Node *prev;
+    NonLeaf *parent;    /** parent of this Node must be NonLeaf */
+    bool is_leaf;       /** if this Node is a Leaf */
+    Leaf *leaf;         /** use this Leaf's value as the Node's value */
+    Node *next;         /** next slibing for this Node */
+    Node *prev;         /** previous slibing for this Node */
 
     Node(
             NonLeaf *parent,
@@ -31,7 +34,7 @@ struct SkipTable::Node
 
 struct SkipTable::NonLeaf : public SkipTable::Node
 {
-    Node *child;
+    Node *child;        /** first child of this NonLeaf */
 
     NonLeaf(
             NonLeaf *parent,
@@ -47,7 +50,7 @@ struct SkipTable::NonLeaf : public SkipTable::Node
 
 struct SkipTable::Leaf : public SkipTable::Node
 {
-    Buffer value;
+    Buffer value;       /** value of this Leaf */
 
     Leaf(
             NonLeaf *parent,
@@ -74,11 +77,19 @@ SkipTable::Iterator::Iterator(SkipTable *owner, Leaf *ptr)
 
 SkipTable::Iterator
 SkipTable::nextIterator(const Iterator &iter)
-{ return Iterator(this, static_cast<Leaf*>(iter._ptr->next)); }   // TODO unsafe
+{ return Iterator(this, static_cast<Leaf*>(iter._ptr->next)); }
 
 SkipTable::Iterator
 SkipTable::prevIterator(const Iterator &iter)
-{ return Iterator(this, static_cast<Leaf*>(iter._ptr->prev)); }         // TODO unsafe
+{
+    if (iter._ptr) {
+        return Iterator(this, static_cast<Leaf*>(iter._ptr->prev));
+    }
+    else {
+        // if arrived at end() already
+        return Iterator(this, last());
+    }
+}
 
 SkipTable::Iterator
 SkipTable::begin()
@@ -344,14 +355,90 @@ SkipTable::clear()
     _root = nullptr;
 }
 
+SkipTable::Iterator
+SkipTable::erase(Iterator pos)
+{
+    assert(pos._owner == this);
+    assert(pos._ptr);
+
+    Iterator ret(this, static_cast<Leaf*>(pos._ptr->next));
+
+    if (pos._ptr->prev) {
+        // not the first
+        Node *ptr = pos._ptr;
+        NonLeaf *parent = ptr->parent;
+        bool is_child = parent && parent->child == ptr;
+        while (is_child) {
+            if (ptr->prev) {
+                ptr->prev->next = ptr->next;
+            }
+            if (ptr->next) {
+                ptr->next->prev = ptr->prev;
+            }
+            delete ptr;
+            NonLeaf *new_parent = static_cast<NonLeaf*>(parent->prev);
+            for (auto *child = ptr->next; child && child->parent == parent; child = child->next) {
+                child->parent = new_parent;
+            }
+            ptr = parent;
+            parent = ptr->parent;
+            is_child = parent && parent->child == ptr;
+        }
+        if (ptr->prev) {
+            ptr->prev->next = ptr->next;
+        }
+        if (ptr->next) {
+            ptr->next->prev = ptr->prev;
+        }
+        delete ptr;
+    }
+    else {
+        // first node in this list
+        Node *ptr = pos._ptr;
+        NonLeaf *parent = ptr->parent;
+        bool is_only_child = parent && (!ptr->next || ptr->parent != ptr->next->parent);
+        Node *break_point = ptr->next;
+
+        if (ptr->next) {
+            ptr->next->prev = nullptr;
+        }
+        delete ptr;
+
+        while (is_only_child) {
+            ptr = parent;
+            parent = ptr->parent;
+            break_point = ptr->next;
+            is_only_child = parent && (!ptr->next || ptr->parent != ptr->next->parent);
+
+            if (ptr->next) {
+                ptr->next->prev = nullptr;
+            }
+            delete ptr;
+        }
+        if (!parent) {
+            _root = break_point;
+        }
+        else {
+            break_point->prev = nullptr;
+            parent->child = break_point;
+            while (parent) {
+                parent->leaf = break_point->leaf;
+                parent = parent->parent;
+            }
+        }
+    }
+
+    return ret;
+}
+
 std::ostream &
-SkipTable::__debug_output(std::ostream &os)
+SkipTable::__debug_output(std::ostream &os, std::function<void(std::ostream &, ConstSlice)> print)
 {
     Node *head = _root;
     do {
         auto *ptr = head;
         while (ptr) {
-            os << *reinterpret_cast<const int*>(ptr->leaf->value.cbegin()) << "\t";
+            print(os, ptr->leaf->value);
             ptr = ptr->next;
         }
         os << std::endl;

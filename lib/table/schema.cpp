@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "schema.hpp"
 
 using namespace cdb;
@@ -17,7 +19,7 @@ void
 SchemaFactory::addIntegerField(std::string name)
 {
     _schema->_fields.emplace_back(Field{
-            FieldType::INTEGER,
+            FieldTypeSpec::INTEGER,
             name
         });
 
@@ -30,7 +32,7 @@ void
 SchemaFactory::addFloatField(std::string name)
 {
     _schema->_fields.emplace_back(Field{
-            FieldType::FLOAT,
+            FieldTypeSpec::FLOAT,
             name
         });
 }
@@ -45,7 +47,7 @@ SchemaFactory::addCharField(std::string name, int length)
             name.end() - sizeof(length)
         );
     _schema->_fields.emplace_back(Field{
-            FieldType::CHAR,
+            FieldTypeSpec::CHAR,
             name
         });
 }
@@ -54,7 +56,7 @@ void
 SchemaFactory::addTextField(std::string name)
 {
     _schema->_fields.emplace_back(Field{
-            FieldType::TEXT,
+            FieldTypeSpec::TEXT,
             name
         });
 }
@@ -68,7 +70,7 @@ SchemaFactory::setPrimary(std::string name)
             ++iter
     ) {
         if (name == 
-                (iter->type == FieldType::CHAR 
+                (iter->type.spec == FieldTypeSpec::CHAR 
                  ? iter->name.substr(0, iter->name.length() - 4) 
                  : iter->name)
         ) {
@@ -78,3 +80,42 @@ SchemaFactory::setPrimary(std::string name)
     }
 }
 
+std::size_t 
+Schema::getFieldSizeByType(FieldType type) 
+{
+    switch (type.spec) {
+        case FieldTypeSpec::INTEGER:
+            return 4;
+        case FieldTypeSpec::FLOAT:
+            return 4;
+        case FieldTypeSpec::CHAR:
+            return type.length;
+        case FieldTypeSpec::TEXT:
+            return 4;       // TODO
+        default:
+            return 0;
+    }
+}
+
+std::size_t
+Schema::getRecordSize() const
+{
+    std::size_t ret = 0;
+    for (auto f : _fields) {
+        ret += getFieldSizeByType(f.type);
+    }
+    return ret;
+}
+
+Column
+Schema::getColumnByName(std::string name)
+{
+    std::size_t offset = 0;
+    for (auto f : _fields) {
+        if (f.name == name) {
+            return Column(&f, offset);
+        }
+        offset += getFieldSizeByType(f.type);
+    }
+    throw 1;    // TODO throw column not found exception
+}

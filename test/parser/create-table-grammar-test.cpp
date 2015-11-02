@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <string>
 
+#include "lib/parser/grammar.hpp"
 #include "third-party/pegtl/pegtl/analyze.hh"
 #include "third-party/pegtl/pegtl.hh"
-#include "lib/parser/grammar.hpp"
 
 using namespace cdb::parser;
 

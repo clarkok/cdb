@@ -10,7 +10,17 @@
 namespace cdb {
 
     /**
-     * Index in memory only
+     * SkipTable is actually a Skip List.
+     *
+     * Objects of this class will exists only in memory, and are used as temp tables.
+     *
+     * Time complexity of finding, inserting and erasing a single element will be 
+     * O(logN). And for iterating, time complexity will be O(1).
+     *
+     * Values can be equal by Comparator in this SkipTable.
+     *
+     * Values is mutable in a SkipTable, but one should not modify the order of a value
+     * in a SkipTable, or the behavior is undefined.
      */
     class SkipTable
     {
@@ -20,11 +30,16 @@ namespace cdb {
         typedef std::function<bool(ConstSlice, ConstSlice)> Comparator;
 
     public:
+        /**
+         * Bidirection iterator, which dereference to a Slice pointing to the actual
+         * record
+         */
         struct Iterator
         { 
+        private:
             SkipTable *_owner;
             Leaf *_ptr;
-            mutable Slice _slice;
+            mutable Slice _slice;   // prefetched when constructed
 
             Iterator(SkipTable *owner, Leaf *ptr);
         public:
@@ -39,6 +54,10 @@ namespace cdb {
             inline bool
             operator != (const Iterator &b) const
             { return !operator ==(b); }
+
+            inline
+            operator bool () const
+            { return _ptr; }
 
             inline Iterator
             next() const
@@ -60,22 +79,85 @@ namespace cdb {
         };
 
     private:
+        /**
+         * Get a Iterator pointing to the next element this Iterator pointing to
+         *
+         * @param iter the Iterator to reference
+         * @return a new Iterator
+         * @see prevIterator
+         */
         Iterator nextIterator(const Iterator &iter);
+        /**
+         * Get a Iterator pointing to the previous element this Iterator pointing to
+         *
+         * @param iter the Iterator to reference
+         * @return a new Iterator
+         * @see nextIterator
+         */
         Iterator prevIterator(const Iterator &iter);
 
         Comparator _less;
 
         Node *_root = nullptr;
 
+        /**
+         * Find lower bound of value, until it meets a leaf, or nullptr
+         *
+         * @param value the value to look up
+         * @return the leaf if found, or nullptr
+         * @see upperBoundInLeaf
+         */
         inline Leaf* lowerBoundInLeaf(ConstSlice value);
+
+        /**
+         * Find upper bound of value, until it meets a leaf, or nullptr
+         *
+         * @param value the value to look up
+         * @return the leaf if found, or nullptr
+         * @see lowerBoundInLeaf
+         */
         inline Leaf* upperBoundInLeaf(ConstSlice value);
 
+        /**
+         * Construct a leaf node
+         *
+         * @param parent the parent of this leaf
+         * @param next the next leaf of this leaf
+         * @param prev the previous leaf of this leaf
+         * @param value the value of this leaf
+         * @return the new constructed Leaf
+         * @see newNonLeaf
+         */
         inline Leaf*    newLeaf(NonLeaf *parent, Leaf *next, Leaf *prev, ConstSlice value) const;
+        /**
+         * Construct a non-leaf node
+         *
+         * @param parent the parent of this node
+         * @param leaf the value-leaf of this node
+         * @param next the next node of this node
+         * @param prev the prev node of this node
+         * @param child the child node of this node
+         * @return ths new consturcted Node
+         * @see newLeaf
+         */
         inline NonLeaf* newNonLeaf(NonLeaf *parent, Leaf *leaf, Node *next, Node *prev, Node *child) const;
 
+        /**
+         * Get the first leaf of this SkipTable
+         *
+         * @return the first leaf, or nullptr if this table is empty
+         * @see last
+         */
         inline Leaf* first() const;
+        /**
+         * Get the last leaf of this SkipTable
+         *
+         * @return the last leaf, or nullptr if this table is empty
+         * @see first
+         */
         inline Leaf* last() const;
 
+        // SkipTable not copiable
         SkipTable(const Iterator &) = delete;
         SkipTable &operator = (const Iterator &) = delete;
 
@@ -83,18 +165,71 @@ namespace cdb {
         SkipTable(Comparator less);
         ~SkipTable();
 
+        /**
+         * Find the lower bound of the given value
+         *
+         * @param value the value to find
+         * @return an Iterator pointing to the lower bound element
+         * @see upperBound
+         */
         Iterator lowerBound(ConstSlice value);
+
+        /**
+         * Find the upper bound of the given value
+         *
+         * @param value the value to find
+         * @return an Iterator pointing to the upper bound element
+         * @see lowerBound
+         */
         Iterator upperBound(ConstSlice value);
 
+        /**
+         * Insert a value to this SkipTable
+         *
+         * @param value the value to insert
+         * @return an Iterator pointing to the new inserted element
+         */
         Iterator insert(ConstSlice value);
 
+        /**
+         * Erase a value from this SkipTable
+         *
+         * @param pos the Iteartor pointing to the element to be erased
+         * @return an Iterator pointing to the next element in this SkipTable
+         */
+        Iterator erase(Iterator pos);
+
+        /**
+         * Get the first Iterator in this SkipTable
+         *
+         * @return the first Iterator
+         * @see end
+         */
         Iterator begin();
+
+        /**
+         * Get the Iterator after the last Iterator in this SkipTable
+         *
+         * The returned Iterator is invalid
+         *
+         * @return the Iterator after the last
+         * @see begin
+         */
         Iterator end();
 
+        /**
+         * Remove all the elements in this SkipTable
+         */
         void clear();
 
-        // for debug
-        std::ostream &__debug_output(std::ostream &os);
+        /**
+         * For debug ONLY, output all the levels in this SkipTable
+         *
+         * @param os the output stream
+         * @param print the printing function used to print a single value to the os
+         * @return the os
+         */
+        std::ostream &__debug_output(std::ostream &os, std::function<void(std::ostream &, ConstSlice)> print);
     };
 }
 
