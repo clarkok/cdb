@@ -4,7 +4,7 @@ project (cdb)
 set (CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
 if (APPLE)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif ()
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang")

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <set>
+#include <random>
 
 #include "../test-inc.hpp"
 #include "lib/index/skip-table.hpp"

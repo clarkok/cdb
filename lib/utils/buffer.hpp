@@ -1,12 +1,9 @@
 #ifndef _DB_UTILS_BUFFER_H_
 #define _DB_UTILS_BUFFER_H_
 
-#ifdef __APPLE__
-#   include <tr1/cstdint>
-#else
-#   include <cstdint>
-#endif
+#include <cstdint>
 #include <memory>
+#include <algorithm>
 
 namespace cdb {
     typedef std::int8_t     Byte;

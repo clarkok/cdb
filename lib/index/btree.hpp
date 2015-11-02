@@ -813,7 +813,7 @@ namespace cdb {
         template<typename T>
         Key makeKey(const T *p)
         {
-            assert(sizeof(T) >= _key_size);
+            assert(sizeof(T) <= _key_size);
 
             Key ret;
 
@@ -838,7 +838,7 @@ namespace cdb {
         template<typename T>
         Key makeKey(const T *p, int length)
         {
-            assert(sizeof(T) * length >= _key_size);
+            assert(sizeof(T) * length <= _key_size);
 
             Key ret;
 
