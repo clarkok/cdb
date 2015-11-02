@@ -22,101 +22,150 @@ static const int TEST_NUMBER = 512;
 static const int TEST_LARGE_NUMBER = 10000;    // tested up to 1000000, make it small to reduce test time
 
 namespace cdb {
-    class BTreeTest : public ::testing::Test
+class BTreeTest : public ::testing::Test
+{
+protected:
+    static void TearDownTestCase()
+    { std::remove(TEST_PATH); }
+
+    std::unique_ptr<Driver> drv;
+    std::unique_ptr<BlockAllocator> allocator;
+    std::unique_ptr<BasicAccesser> accesser;
+    std::unique_ptr<BTree> uut;
+
+    BTreeTest()
+        : drv(new BasicDriver(TEST_PATH)),
+          allocator(new BitmapAllocator(drv.get(), 0)),
+          accesser(new BasicAccesser(drv.get(), allocator.get()))
     {
-    protected:
-        static void TearDownTestCase()
-        { std::remove(TEST_PATH); }
+        allocator->reset();
+        uut.reset(new BTree(
+                accesser.get(),
+                [](const Byte *a, const Byte *b) -> bool 
+                {
+                    return 
+                        *reinterpret_cast<const int*>(a) <
+                        *reinterpret_cast<const int*>(b);
+                },
+                [](const Byte *a, const Byte *b) -> bool
+                {
+                    return 
+                        *reinterpret_cast<const int*>(a) ==
+                        *reinterpret_cast<const int*>(b);
+                },
+                accesser->allocateBlock(),
+                sizeof(int),
+                sizeof(int)
+            ));
+        uut->reset();
+    }
 
-        std::unique_ptr<Driver> drv;
-        std::unique_ptr<BlockAllocator> allocator;
-        std::unique_ptr<BasicAccesser> accesser;
-        std::unique_ptr<BTree> uut;
+    void treeDump(std::ostream &os)
+    {
+        os << "first_leaf: " << uut->_first_leaf << std::endl;
+        os << "last_leaf: " << uut->_last_leaf << std::endl;
+        treeDump(uut->_root, os);
+    }
 
-        BTreeTest()
-            : drv(new BasicDriver(TEST_PATH)),
-              allocator(new BitmapAllocator(drv.get(), 0)),
-              accesser(new BasicAccesser(drv.get(), allocator.get()))
-        {
-            allocator->reset();
-            uut.reset(new BTree(
-                    accesser.get(),
-                    [](const Byte *a, const Byte *b) -> bool 
-                    {
-                        return 
-                            *reinterpret_cast<const int*>(a) <
-                            *reinterpret_cast<const int*>(b);
-                    },
-                    [](const Byte *a, const Byte *b) -> bool
-                    {
-                        return 
-                            *reinterpret_cast<const int*>(a) ==
-                            *reinterpret_cast<const int*>(b);
-                    },
-                    accesser->allocateBlock(),
-                    sizeof(int),
-                    sizeof(int)
-                ));
-            uut->reset();
-        }
+    void treeDump(Block node, std::ostream &os)
+    {
+        os << node.index() << std::endl;
 
-        void treeDump(std::ostream &os)
-        {
-            os << "first_leaf: " << uut->_first_leaf << std::endl;
-            os << "last_leaf: " << uut->_last_leaf << std::endl;
-            treeDump(uut->_root, os);
-        }
+        // dump head
+        auto *header = uut->getHeaderFromNode(node);
+        os << "    node_is_leaf: " << header->node_is_leaf << std::endl;
+        os << "    node_length: " << header->node_length << std::endl;
+        os << "    entry_count: " << header->entry_count << std::endl;
+        os << "    prev: " << header->prev << std::endl;
+        os << "    next: " << header->next << std::endl;
 
-        void treeDump(Block node, std::ostream &os)
-        {
-            os << node.index() << std::endl;
-
-            // dump head
-            auto *header = uut->getHeaderFromNode(node);
-            os << "    node_is_leaf: " << header->node_is_leaf << std::endl;
-            os << "    node_length: " << header->node_length << std::endl;
-            os << "    entry_count: " << header->entry_count << std::endl;
-            os << "    prev: " << header->prev << std::endl;
-            os << "    next: " << header->next << std::endl;
-
-            if (header->node_is_leaf) {
-                os << std::endl;
-                for (int i = 0; i < header->entry_count; ++i) {
-                    auto *entry = uut->getEntryInLeafByIndex(node, i);
-                    os << "    " << *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry))
-                        << " : " << *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content())
-                        << std::endl;
-                }
-                os << std::endl;
+        if (header->node_is_leaf) {
+            os << std::endl;
+            for (int i = 0; i < header->entry_count; ++i) {
+                auto *entry = uut->getEntryInLeafByIndex(node, i);
+                os << "    " << *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry))
+                    << " : " << *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content())
+                    << std::endl;
             }
-            else {
-                os << "    before: " << uut->getMarkFromNode(node)->before << std::endl;
-                os << std::endl;
-                for (int i = 0; i < header->entry_count; ++i) {
-                    auto *entry = uut->getEntryInNodeByIndex(node, i);
-                    os << "    " << *reinterpret_cast<int*>(uut->getKeyFromNodeEntry(entry))
-                        << ": " << *reinterpret_cast<int*>(uut->getIndexFromNodeEntry(entry))
-                        << std::endl;
-                }
-                os << std::endl;
+            os << std::endl;
+        }
+        else {
+            os << "    before: " << uut->getMarkFromNode(node)->before << std::endl;
+            os << std::endl;
+            for (int i = 0; i < header->entry_count; ++i) {
+                auto *entry = uut->getEntryInNodeByIndex(node, i);
+                os << "    " << *reinterpret_cast<int*>(uut->getKeyFromNodeEntry(entry))
+                    << ": " << *reinterpret_cast<int*>(uut->getIndexFromNodeEntry(entry))
+                    << std::endl;
+            }
+            os << std::endl;
 
-                if (uut->getMarkFromNode(node)->before) {
-                    treeDump(uut->_accesser->aquire(uut->getMarkFromNode(node)->before), os);
-                }
+            if (uut->getMarkFromNode(node)->before) {
+                treeDump(uut->_accesser->aquire(uut->getMarkFromNode(node)->before), os);
+            }
 
-                for (int i = 0; i < header->entry_count; ++i) {
-                    auto *entry = uut->getEntryInNodeByIndex(node, i);
-                    treeDump(uut->_accesser->aquire(*uut->getIndexFromNodeEntry(entry)), os);
-                }
+            for (int i = 0; i < header->entry_count; ++i) {
+                auto *entry = uut->getEntryInNodeByIndex(node, i);
+                treeDump(uut->_accesser->aquire(*uut->getIndexFromNodeEntry(entry)), os);
             }
         }
-    };
+    }
+};
+  
+std::ofstream fout("./test.log");
+
+TEST_F(BTreeTest, MakeKey)
+{
+    int key_small_than_Key = TEST_NUMBER;
+    ASSERT_TRUE(sizeof(key_small_than_Key) <= sizeof(BTree::Key::value));
+    auto key = uut->makeKey(&key_small_than_Key);
+    EXPECT_EQ(key_small_than_Key, *reinterpret_cast<const int*>(&key.value));
+
+    char test[] = {1, 2, 3, 4};
+    key = uut->makeKey(test, sizeof(test) / sizeof(test[0]));
+    EXPECT_EQ(0x04030201, *reinterpret_cast<const int*>(&key.value));
+
+    uut->_key_size = sizeof(BTree::Key::value) * 2;
+    key = uut->makeKey(&key_small_than_Key);
+    EXPECT_EQ(&key_small_than_Key, reinterpret_cast<const int*>(key.pointer));
+
+    key = uut->makeKey(test, sizeof(test) / sizeof(test[0]));
+    EXPECT_EQ(test, reinterpret_cast<const char*>(key.pointer));
+}
+
+TEST_F(BTreeTest, GetPointerOfKey)
+{
+    int key_small_than_Key = TEST_NUMBER;
+    ASSERT_TRUE(sizeof(key_small_than_Key) <= sizeof(BTree::Key::value));
+    auto key = uut->makeKey(&key_small_than_Key);
+    EXPECT_EQ(reinterpret_cast<const int*>(&key.value), reinterpret_cast<const int*>(uut->getPointerOfKey(key)));
+
+    uut->_key_size = sizeof(BTree::Key::value) * 2;
+    key = uut->makeKey(&key_small_than_Key);
+    EXPECT_EQ(&key_small_than_Key, reinterpret_cast<const int*>(uut->getPointerOfKey(key)));
+}
+
+TEST_F(BTreeTest, EntrySize)
+{
+    EXPECT_EQ(uut->_key_size + 4, uut->nodeEntrySize());
+    EXPECT_EQ(uut->_key_size + uut->_value_size, uut->leafEntrySize());
+}
+
+TEST_F(BTreeTest, MaximumEntry)
+{
+    EXPECT_EQ((Driver::BLOCK_SIZE - sizeof(BTree::NodeMark)) / uut->nodeEntrySize(), uut->maximumEntryPerNode());
+    EXPECT_EQ((Driver::BLOCK_SIZE - sizeof(BTree::LeafMark)) / uut->leafEntrySize(), uut->maximumEntryPerLeaf());
+}
+
+// ----
 
 TEST_F(BTreeTest, Insert)
 {
     for (int i = 0; i < TEST_NUMBER; ++i) {
         auto iter = uut->insert(uut->makeKey(&i));
         *reinterpret_cast<int*>(iter.getValue().content()) = i;
+        treeDump(fout);
+        fout.flush();
     }
 
     for (int i = 0; i < TEST_NUMBER; ++i) {

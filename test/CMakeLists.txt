@@ -10,7 +10,6 @@ endif()
 
 find_package(Threads REQUIRED)
 
-include_directories(${gtest_SOURCE_DIR}/include)
 add_subdirectory(utils)
 add_subdirectory(driver)
 add_subdirectory(index)

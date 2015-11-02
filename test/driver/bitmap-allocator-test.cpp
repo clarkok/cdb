@@ -130,6 +130,8 @@ TEST_F(BitmapAllocatorTest, AnotherStartAt)
 
     uut->reset();
 
-    EXPECT_EQ(1, uut->allocateBlock());
+    for (int i = 1; i < 63; ++i) {
+        EXPECT_EQ(i, uut->allocateBlock());
+    }
 }
 

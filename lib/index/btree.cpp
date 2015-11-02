@@ -139,7 +139,7 @@ BTree::insert(Key key)
             insertInNode(path.top(), split_key, new_node.index());
         }
 
-        return ret;
+        return std::move(ret);
     }
     else {
         return insertInLeaf(path.top(), key);

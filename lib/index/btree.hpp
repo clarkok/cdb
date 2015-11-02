@@ -7,6 +7,10 @@
 #include <iterator>
 #include <functional>
 
+#ifdef DB_TEST
+#include <gtest/gtest.h>
+#endif
+
 #include "lib/driver/driver-accesser.hpp"
 
 namespace cdb {
@@ -857,7 +861,13 @@ namespace cdb {
         }
 
         // used to test
+#ifdef DB_TEST
         friend class BTreeTest;
+        FRIEND_TEST(BTreeTest, MakeKey);
+        FRIEND_TEST(BTreeTest, GetPointerOfKey);
+        FRIEND_TEST(BTreeTest, EntrySize);
+        FRIEND_TEST(BTreeTest, MaximumEntry);
+#endif
     };
 
 }
