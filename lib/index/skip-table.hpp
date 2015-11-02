@@ -77,13 +77,7 @@ namespace cdb {
             friend class SkipTable;
         };
         typedef const Byte * Key;
-
-        struct Comparator
-        {
-            virtual bool
-            operator() (Key a, Key b) const
-            { return a < b; }
-        };
+        typedef std::function<bool(Key, Key)> Comparator;
 
     private:
         /**
@@ -104,7 +98,7 @@ namespace cdb {
         Iterator prevIterator(const Iterator &iter);
 
         int _key_offset;
-        const Comparator &_less;
+        Comparator _less;
 
         Node *_root = nullptr;
 
@@ -172,7 +166,7 @@ namespace cdb {
         SkipTable &operator = (const Iterator &) = delete;
 
     public:
-        SkipTable(int key_offset, const Comparator &less);
+        SkipTable(int key_offset, Comparator less);
         ~SkipTable();
 
         /**

@@ -17,23 +17,15 @@ class SkipTableTest : public ::testing::Test
 protected:
     std::unique_ptr<SkipTable> uut;
 
-    struct Cmp : SkipTable::Comparator
-    {
-        virtual bool
-        operator () (SkipTable::Key a, SkipTable::Key b) const
-        {
-            return 
-                *reinterpret_cast<const int*>(a) <
-                *reinterpret_cast<const int*>(b);
-        }
-    };
-
-    Cmp cmp;
-
     SkipTableTest()
         : uut(new SkipTable(
                     0,
-                    cmp
+                    [](SkipTable::Key a, SkipTable::Key b) -> bool
+                    {
+                        return 
+                            *reinterpret_cast<const int*>(a) <
+                            *reinterpret_cast<const int*>(b);
+                    }
                 ))
     { }
 
