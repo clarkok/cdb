@@ -64,7 +64,7 @@ struct SkipTable::Leaf : public SkipTable::Node
     { }
 };
 
-SkipTable::SkipTable(int key_offset, Comparator less)
+SkipTable::SkipTable(int key_offset, const Comparator &less)
     : _key_offset(key_offset), _less(less)
 { }
 
