@@ -32,12 +32,14 @@ endif ()
 
 include_directories (${PROJECT_SOURCE_DIR})
 
-add_subdirectory (lib)
-add_subdirectory (src)
-
 option(Test "Test" ON)
 if (Test)
     enable_testing ()
+    include_directories(${gtest_SOURCE_DIR}/include)
+    add_definitions(-DDB_TEST)
     add_subdirectory (third-party/gtest-1.7.0)
     add_subdirectory (test)
 endif ()
+
+add_subdirectory (lib)
+add_subdirectory (src)
