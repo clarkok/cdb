@@ -187,6 +187,7 @@ BitmapAllocator::allocateBlocks(Length length, BlockIndex hint)
     // no enough space in the hinting section
     if (_bitmaps[hint_section].count <= BLOCK_PER_SECTION - length) {
         if (allocateBlocksInSection(_bitmaps[hint_section], length, section_hint, ret)) {
+            assert((ret + hint_section * BLOCK_PER_SECTION) > _start_at);
             return ret + hint_section * BLOCK_PER_SECTION;
         }
     }
