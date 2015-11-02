@@ -13,20 +13,20 @@ struct SkipTable::Node
 {
     NonLeaf *parent;    /** parent of this Node must be NonLeaf */
     bool is_leaf;       /** if this Node is a Leaf */
-    Leaf *leaf;         /** use this Leaf's value as the Node's value */
+    Key key;
     Node *next;         /** next slibing for this Node */
     Node *prev;         /** previous slibing for this Node */
 
     Node(
             NonLeaf *parent,
             bool is_leaf,
-            Leaf *leaf,
+            Key key,
             Node *next,
             Node *prev
         )
         : parent(parent),
           is_leaf(is_leaf),
-          leaf(leaf),
+          key(key),
           next(next),
           prev(prev)
     { }
@@ -38,12 +38,12 @@ struct SkipTable::NonLeaf : public SkipTable::Node
 
     NonLeaf(
             NonLeaf *parent,
-            Leaf *leaf,
+            Key key,
             Node *next,
             Node *prev,
             Node *child
         )
-        : Node(parent, false, leaf, next, prev),
+        : Node(parent, false, key, next, prev),
           child(child)
     { }
 };
@@ -54,18 +54,18 @@ struct SkipTable::Leaf : public SkipTable::Node
 
     Leaf(
             NonLeaf *parent,
-            Leaf *leaf,
+            Key key,
             Node *next,
             Node *prev,
             Buffer value
         )
-        : Node(parent, true, leaf, next, prev),
+        : Node(parent, true, key, next, prev),
           value(value)
     { }
 };
 
-SkipTable::SkipTable(Comparator less)
-    : _less(less)
+SkipTable::SkipTable(int key_offset, Comparator less)
+    : _key_offset(key_offset), _less(less)
 { }
 
 SkipTable::~SkipTable()
@@ -100,21 +100,21 @@ SkipTable::end()
 { return Iterator(this, nullptr); }
 
 SkipTable::Leaf*
-SkipTable::lowerBoundInLeaf(ConstSlice value)
+SkipTable::lowerBoundInLeaf(Key key)
 {
     Node *ptr = _root;
     Node *child;
 
     while (ptr && !ptr->is_leaf) {
         child = static_cast<NonLeaf*>(ptr)->child;
-        while (ptr && _less(ptr->leaf->value, value)) {
+        while (ptr && _less(ptr->key, key)) {
             child = static_cast<NonLeaf*>(ptr)->child;
             ptr = ptr->next;
         }
         ptr = child;
     }
 
-    while (ptr && _less(static_cast<Leaf*>(ptr)->value, value)) {
+    while (ptr && _less(static_cast<Leaf*>(ptr)->key, key)) {
         ptr = ptr->next;
     }
 
@@ -122,21 +122,21 @@ SkipTable::lowerBoundInLeaf(ConstSlice value)
 }
 
 SkipTable::Leaf*
-SkipTable::upperBoundInLeaf(ConstSlice value)
+SkipTable::upperBoundInLeaf(Key key)
 {
     Node *ptr = _root;
     Node *child;
 
     while (ptr && !ptr->is_leaf) {
         child = static_cast<NonLeaf*>(ptr)->child;
-        while (ptr && !_less(value, ptr->leaf->value)) {
+        while (ptr && !_less(key, ptr->key)) {
             child = static_cast<NonLeaf*>(ptr)->child;
             ptr = ptr->next;
         }
         ptr = child;
     }
 
-    while (ptr && !_less(value, static_cast<Leaf*>(ptr)->value)) {
+    while (ptr && !_less(key, static_cast<Leaf*>(ptr)->key)) {
         ptr = ptr->next;
     }
 
@@ -144,12 +144,12 @@ SkipTable::upperBoundInLeaf(ConstSlice value)
 }
 
 SkipTable::Iterator
-SkipTable::lowerBound(ConstSlice value)
-{ return Iterator(this, lowerBoundInLeaf(value)); }
+SkipTable::lowerBound(Key key)
+{ return Iterator(this, lowerBoundInLeaf(key)); }
 
 SkipTable::Iterator
-SkipTable::upperBound(ConstSlice value)
-{ return Iterator(this, upperBoundInLeaf(value)); }
+SkipTable::upperBound(Key key)
+{ return Iterator(this, upperBoundInLeaf(key)); }
 
 SkipTable::Iterator
 SkipTable::insert(ConstSlice value)
@@ -160,7 +160,7 @@ SkipTable::insert(ConstSlice value)
         return Iterator(this, static_cast<Leaf*>(_root));
     }
 
-    Node *insert_point = upperBoundInLeaf(value);
+    Node *insert_point = upperBoundInLeaf(getKeyOfValue(value));
     insert_point = insert_point ? insert_point->prev : last();
 
     // insert before the first
@@ -184,7 +184,7 @@ SkipTable::insert(ConstSlice value)
             auto *parent = original_ptr->parent;
             auto *new_parent = newNonLeaf(
                     parent->parent,
-                    new_leaf,
+                    new_leaf->key,
                     parent,
                     nullptr,
                     ptr
@@ -199,7 +199,7 @@ SkipTable::insert(ConstSlice value)
         if (original_ptr == _root) {
             _root = newNonLeaf(
                     nullptr,
-                    new_leaf,
+                    new_leaf->key,
                     nullptr,
                     nullptr,
                     ptr
@@ -210,7 +210,7 @@ SkipTable::insert(ConstSlice value)
             do {
                 auto *parent = ptr->parent;
                 parent->child = ptr;
-                parent->leaf = ptr->leaf;
+                parent->key = ptr->key;
                 ptr = parent;
             } while (ptr != _root);
         }
@@ -239,7 +239,7 @@ SkipTable::insert(ConstSlice value)
             auto *parent = insert_point->parent;
             auto *new_parent = newNonLeaf(
                     parent->parent,
-                    new_leaf,
+                    new_leaf->key,
                     parent->next,
                     parent,
                     sep_node
@@ -261,7 +261,7 @@ SkipTable::insert(ConstSlice value)
         if (insert_point == _root) {
             _root = newNonLeaf(
                         nullptr,
-                        static_cast<Leaf*>(insert_point)->leaf,
+                        static_cast<Leaf*>(insert_point)->key,
                         nullptr,
                         nullptr,
                         _root
@@ -288,14 +288,14 @@ SkipTable::newLeaf(
             prev,
             Buffer(value.cbegin(), value.cend())
         );
-    ret->leaf = ret;
+    ret->key = getKeyOfValue(ret->value);
     return ret;
 }
 
 SkipTable::NonLeaf *
 SkipTable::newNonLeaf(
         NonLeaf *parent,
-        Leaf *leaf,
+        Key key,
         Node *next,
         Node *prev,
         Node *child
@@ -303,7 +303,7 @@ SkipTable::newNonLeaf(
 {
     return new NonLeaf(
             parent,
-            leaf,
+            key,
             next,
             prev,
             child
@@ -333,10 +333,21 @@ SkipTable::last() const
 SkipTable::Leaf *
 SkipTable::first() const
 {
-    return _root->is_leaf ?
-        static_cast<Leaf*>(_root) :
-        static_cast<NonLeaf*>(_root)->leaf;
+    if (!_root) {
+        return nullptr;
+    }
+
+    Node *ptr = _root;
+
+    while (!ptr->is_leaf) {
+        ptr = static_cast<NonLeaf*>(ptr)->child;
+    }
+    return static_cast<Leaf*>(ptr);
 }
+
+SkipTable::Key
+SkipTable::getKeyOfValue(ConstSlice value) const
+{ return value.cbegin() + _key_offset; }
 
 void
 SkipTable::clear()
@@ -422,7 +433,7 @@ SkipTable::erase(Iterator pos)
             break_point->prev = nullptr;
             parent->child = break_point;
             while (parent) {
-                parent->leaf = break_point->leaf;
+                parent->key = break_point->key;
                 parent = parent->parent;
             }
         }
@@ -432,13 +443,13 @@ SkipTable::erase(Iterator pos)
 }
 
 std::ostream &
-SkipTable::__debug_output(std::ostream &os, std::function<void(std::ostream &, ConstSlice)> print)
+SkipTable::__debug_output(std::ostream &os, std::function<void(std::ostream &, Key)> print)
 {
     Node *head = _root;
     do {
         auto *ptr = head;
         while (ptr) {
-            print(os, ptr->leaf->value);
+            print(os, ptr->key);
             ptr = ptr->next;
         }
         os << std::endl;

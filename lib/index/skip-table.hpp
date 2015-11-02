@@ -27,7 +27,6 @@ namespace cdb {
         struct Node;
         struct Leaf;
         struct NonLeaf;
-        typedef std::function<bool(ConstSlice, ConstSlice)> Comparator;
 
     public:
         /**
@@ -77,6 +76,8 @@ namespace cdb {
 
             friend class SkipTable;
         };
+        typedef const Byte * Key;
+        typedef std::function<bool(Key, Key)> Comparator;
 
     private:
         /**
@@ -96,6 +97,7 @@ namespace cdb {
          */
         Iterator prevIterator(const Iterator &iter);
 
+        int _key_offset;
         Comparator _less;
 
         Node *_root = nullptr;
@@ -107,7 +109,7 @@ namespace cdb {
          * @return the leaf if found, or nullptr
          * @see upperBoundInLeaf
          */
-        inline Leaf* lowerBoundInLeaf(ConstSlice value);
+        inline Leaf* lowerBoundInLeaf(Key key);
 
         /**
          * Find upper bound of value, until it meets a leaf, or nullptr
@@ -116,7 +118,7 @@ namespace cdb {
          * @return the leaf if found, or nullptr
          * @see lowerBoundInLeaf
          */
-        inline Leaf* upperBoundInLeaf(ConstSlice value);
+        inline Leaf* upperBoundInLeaf(Key key);
 
         /**
          * Construct a leaf node
@@ -140,7 +142,7 @@ namespace cdb {
          * @return ths new consturcted Node
          * @see newLeaf
          */
-        inline NonLeaf* newNonLeaf(NonLeaf *parent, Leaf *leaf, Node *next, Node *prev, Node *child) const;
+        inline NonLeaf* newNonLeaf(NonLeaf *parent, Key key, Node *next, Node *prev, Node *child) const;
 
         /**
          * Get the first leaf of this SkipTable
@@ -157,12 +159,14 @@ namespace cdb {
          */
         inline Leaf* last() const;
 
+        inline Key getKeyOfValue(ConstSlice value) const;
+
         // SkipTable not copiable
         SkipTable(const Iterator &) = delete;
         SkipTable &operator = (const Iterator &) = delete;
 
     public:
-        SkipTable(Comparator less);
+        SkipTable(int key_offset, Comparator less);
         ~SkipTable();
 
         /**
@@ -172,7 +176,7 @@ namespace cdb {
          * @return an Iterator pointing to the lower bound element
          * @see upperBound
          */
-        Iterator lowerBound(ConstSlice value);
+        Iterator lowerBound(Key key);
 
         /**
          * Find the upper bound of the given value
@@ -181,7 +185,7 @@ namespace cdb {
          * @return an Iterator pointing to the upper bound element
          * @see lowerBound
          */
-        Iterator upperBound(ConstSlice value);
+        Iterator upperBound(Key key);
 
         /**
          * Insert a value to this SkipTable
@@ -229,7 +233,7 @@ namespace cdb {
          * @param print the printing function used to print a single value to the os
          * @return the os
          */
-        std::ostream &__debug_output(std::ostream &os, std::function<void(std::ostream &, ConstSlice)> print);
+        std::ostream &__debug_output(std::ostream &os, std::function<void(std::ostream &, Key)> print);
     };
 }
 

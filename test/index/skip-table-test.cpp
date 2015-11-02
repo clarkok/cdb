@@ -10,7 +10,7 @@
 using namespace cdb;
 
 static const int SMALL_NUMBER = 10;
-static const int LARGE_NUMBER = 10000;  // tested up to 1,000,000. make it small to less the test time
+static const int LARGE_NUMBER = 1000000;  // tested up to 1,000,000. make it small to less the test time
 
 class SkipTableTest : public ::testing::Test
 {
@@ -19,11 +19,12 @@ protected:
 
     SkipTableTest()
         : uut(new SkipTable(
-                    [](ConstSlice a, ConstSlice b) -> bool
+                    0,
+                    [](SkipTable::Key a, SkipTable::Key b) -> bool
                     {
                         return 
-                            *reinterpret_cast<const int*>(a.content()) <
-                            *reinterpret_cast<const int*>(b.content());
+                            *reinterpret_cast<const int*>(a) <
+                            *reinterpret_cast<const int*>(b);
                     }
                 ))
     { }
@@ -32,16 +33,20 @@ protected:
     {
         uut->__debug_output(
                 std::cerr,
-                [] (std::ostream &os, ConstSlice value) {
-                    os << *reinterpret_cast<const int*>(value.content()) << "\t";
+                [] (std::ostream &os, SkipTable::Key key) {
+                    os << *reinterpret_cast<const int*>(key) << "\t";
                 }
             );
         std::cerr << std::endl;
     }
 
     template <typename T>
+    SkipTable::Key toKey(T &value)
+    { return reinterpret_cast<SkipTable::Key>(&value); }
+
+    template <typename T>
     ConstSlice toConstSlice(T &value)
-    { return ConstSlice(reinterpret_cast<const Byte*>(&value), sizeof(T)); }
+    { return ConstSlice(reinterpret_cast<SkipTable::Key>(&value), sizeof(T)); }
 };
 
 TEST_F(SkipTableTest, Insert)
@@ -106,10 +111,10 @@ TEST_F(SkipTableTest, Lookup)
     }
 
     for (int i = 0; i < SMALL_NUMBER; ++i) {
-        auto iter = uut->lowerBound(toConstSlice(i));
+        auto iter = uut->lowerBound(toKey(i));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter->content()));
 
-        iter = uut->upperBound(toConstSlice(i));
+        iter = uut->upperBound(toKey(i));
         if (i == SMALL_NUMBER - 1) {
             EXPECT_EQ(nullptr, iter->content());
         }
@@ -139,10 +144,10 @@ TEST_F(SkipTableTest, RandomOrder)
     }
 
     for (int i = 0; i < SMALL_NUMBER; ++i) {
-        auto iter = uut->lowerBound(toConstSlice(i));
+        auto iter = uut->lowerBound(toKey(i));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter->content()));
 
-        iter = uut->upperBound(toConstSlice(i));
+        iter = uut->upperBound(toKey(i));
         if (i == 9) {
             EXPECT_EQ(nullptr, iter->content());
         }
@@ -162,8 +167,8 @@ TEST_F(SkipTableTest, InsertSameValue)
     }
 
     for (int i = 0; i < SMALL_NUMBER; ++i) {
-        auto begin = uut->lowerBound(toConstSlice(i));
-        auto end = uut->upperBound(toConstSlice(i));
+        auto begin = uut->lowerBound(toKey(i));
+        auto end = uut->upperBound(toKey(i));
 
         int count = 0;
         while (begin != end) {
@@ -195,10 +200,10 @@ TEST_F(SkipTableTest, LargeNumber)
     }
 
     for (int i = 0; i < LARGE_NUMBER; ++i) {
-        auto iter = uut->lowerBound(toConstSlice(i));
+        auto iter = uut->lowerBound(toKey(i));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter->content()));
 
-        iter = uut->upperBound(toConstSlice(i));
+        iter = uut->upperBound(toKey(i));
         if (i == LARGE_NUMBER - 1) {
             EXPECT_EQ(nullptr, iter->content());
         }
@@ -241,10 +246,10 @@ TEST_F(SkipTableTest, LargeRandomTest)
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter->content()));
         iter = iter.next();
 
-        auto lower_bound = uut->lowerBound(toConstSlice(i));
+        auto lower_bound = uut->lowerBound(toKey(i));
         EXPECT_EQ(i, *reinterpret_cast<int*>(lower_bound->content()));
 
-        auto upper_bound = uut->upperBound(toConstSlice(i));
+        auto upper_bound = uut->upperBound(toKey(i));
         if (i == LARGE_NUMBER - 1) {
             EXPECT_FALSE(upper_bound->content());
         }
@@ -255,7 +260,7 @@ TEST_F(SkipTableTest, LargeRandomTest)
 
     std::shuffle(v.begin(), v.end(), std::default_random_engine());
     for (auto &n : v) {
-        auto iter = uut->lowerBound(toConstSlice(n));
+        auto iter = uut->lowerBound(toKey(n));
         iter = uut->erase(iter);
         if (iter->content()) {
             EXPECT_TRUE(n < *reinterpret_cast<int*>(iter->content()));
