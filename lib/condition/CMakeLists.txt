@@ -1,0 +1,1 @@
+add_library(condition STATIC condition.cpp condition.hpp visitor.hpp)

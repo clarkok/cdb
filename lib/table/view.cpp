@@ -23,7 +23,7 @@ View::select(Schema *schema)
     Buffer row(schema->getRecordSize());
 
     for (auto iter = begin(); iter != end(); iter.next()) {
-        for (int i = 0; i < map_table.size(); ++i) {
+        for (unsigned int i = 0; i < map_table.size(); ++i) {
             auto original_col = _schema->getColumnById(map_table[i]);
             auto remote_col = schema->getColumnById(i);
 
