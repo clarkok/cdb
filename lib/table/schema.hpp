@@ -140,11 +140,11 @@ namespace cdb {
             Schema *reset();
             Schema *release();
 
-            void addCharField(std::string name, std::size_t length);
-            void addFloatField(std::string name);
-            void addIntegerField(std::string name);
-            void addTextField(std::string name);
-            void setPrimary(std::string name);
+            Factory &addCharField(std::string name, std::size_t length);
+            Factory &addFloatField(std::string name);
+            Factory &addIntegerField(std::string name);
+            Factory &addTextField(std::string name);
+            Factory &setPrimary(std::string name);
         };
     };
 }

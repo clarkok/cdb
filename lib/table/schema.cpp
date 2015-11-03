@@ -65,30 +65,43 @@ Schema::Factory::release(){
     return _schema.release();
 }
 
-void
+Schema::Factory &
 Schema::Factory::addCharField(std::string name, std::size_t length)
-{ addField(Field::Type::CHAR, name, length); }
+{
+    addField(Field::Type::CHAR, name, length);
+    return *this;
+}
 
-void
+Schema::Factory &
 Schema::Factory::addFloatField(std::string name)
-{ addField(Field::Type::FLOAT, name, sizeof(float)); }
+{
+    addField(Field::Type::FLOAT, name, sizeof(float));
+    return *this;
+}
 
-void
+Schema::Factory &
 Schema::Factory::addIntegerField(std::string name)
 {
     addField(Field::Type::INTEGER, name, sizeof(int));
     if (_schema->_primary_field == std::numeric_limits<Field::ID>::max()) {
         _schema->_primary_field = _schema->_fields.back().id;
     }
+    return *this;
 }
 
-void
+Schema::Factory &
 Schema::Factory::addTextField(std::string name)
-{ addField(Field::Type::TEXT, name, sizeof(int)); }
+{
+    addField(Field::Type::TEXT, name, sizeof(int));
+    return *this;
+}
 
-void
+Schema::Factory &
 Schema::Factory::setPrimary(std::string name)
-{ _schema->_primary_field = _schema->getColumnByName(name).field_id; }
+{
+    _schema->_primary_field = _schema->getColumnByName(name).field_id;
+    return *this;
+}
 
 void
 Schema::Factory::addField(Field::Type type, std::string name, std::size_t length)
