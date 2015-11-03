@@ -9,7 +9,7 @@ namespace cdb {
     public:
         static const int MAX_TABLE_NAME_LENGTH = 32;
 
-        static std::unique_ptr<Schema> getSchemaForRootTable();
+        static Schema *getSchemaForRootTable();
     };
 }
 

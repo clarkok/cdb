@@ -3,3 +3,10 @@
 //
 
 #include "index-view.hpp"
+
+using namespace cdb;
+
+View *
+IndexView::select(Schema *schema)
+{
+}

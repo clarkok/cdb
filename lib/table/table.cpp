@@ -2,7 +2,7 @@
 
 using namespace cdb;
 
-std::unique_ptr<Schema>
+Schema *
 Table::getSchemaForRootTable()
 {
     Schema::Factory factory;
@@ -12,5 +12,5 @@ Table::getSchemaForRootTable()
     factory.addIntegerField("data");
 
     factory.addTextField("create_sql");
-    return factory.reset();
+    return factory.release();
 }

@@ -453,4 +453,34 @@ TEST_F(BTreeTest, RandomTest)
     }
 }
 
+TEST_F(BTreeTest, Iterator)
+{
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        auto iter = uut->insert(uut->makeKey(&i));
+        *reinterpret_cast<int*>(iter.getValue().content()) = i;
+    }
+
+    for (int i = 0; i < TEST_NUMBER; i += 16) {
+        int count = 0;
+        int i_upper = i + 16;
+
+        auto lower_iter = uut->lowerBound(uut->makeKey(&i));
+        auto upper_iter = uut->lowerBound(uut->makeKey(&i_upper));
+
+        while (lower_iter != upper_iter) {
+            ++count;
+            lower_iter.next();
+        }
+        EXPECT_EQ(16, count) << "i = " << i;
+
+        lower_iter = uut->lowerBound(uut->makeKey(&i));
+        count = 0;
+        while (lower_iter != upper_iter) {
+            ++count;
+            upper_iter.prev();
+        }
+        EXPECT_EQ(16, count) << "i = " << i;
+    }
+}
+
 }
