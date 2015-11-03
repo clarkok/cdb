@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "lib/index/btree.hpp"
-#include "lib/index/skip-table.hpp"
 #include "view.hpp"
 
 namespace cdb {
@@ -27,7 +26,6 @@ namespace cdb {
 
         virtual ~IndexView() = default;
 
-        virtual View *select(Schema *schema);
         virtual View *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound);
         virtual View *intersect(Iterator a, Iterator b);
         virtual View *join(Iterator a, Iterator b);

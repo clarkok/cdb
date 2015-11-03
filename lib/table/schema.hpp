@@ -130,6 +130,14 @@ namespace cdb {
          */
         Column getPrimaryColumn();
 
+        inline decltype(_fields.cbegin())
+        begin() const
+        { return _fields.cbegin(); }
+
+        inline decltype(_fields.cend())
+        end() const
+        { return _fields.cend(); }
+
         class Factory
         {
             std::unique_ptr<Schema> _schema;
