@@ -86,7 +86,7 @@ namespace cdb {
          * @param schema the schema to select
          * @return a new View, must in memory
          */
-        virtual View *select(Schema *schema);
+        virtual View *select(Schema *schema) { return this; };
 
         /**
          * peek records with column in the given range in this View

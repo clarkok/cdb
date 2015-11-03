@@ -1,7 +1,4 @@
-//
-// Created by c on 11/3/15.
-//
-
+#include <iostream>
 #include "skip-view.hpp"
 
 using namespace cdb;
@@ -35,7 +32,7 @@ SkipView::peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bo
 
     auto cmp = getCompareFuncForType(col.getType());
     auto limit = _table->end();
-    for (auto iter = _table->begin(); iter != limit; iter.next()) {
+    for (auto iter = _table->begin(); iter != limit; iter = iter.next()) {
         auto *value = col.toValue<Byte>(*iter);
         if (cmp(lower_bound, value) && cmp(value, upper_bound)) {
             table->insert(primary_col.getValue(*iter));
@@ -69,16 +66,22 @@ SkipView::intersect(Iterator b, Iterator e)
                 )) {
             iter = _table->erase(iter);
         }
+
+        if (iter == _table->end()) {
+            break;
+        }
+
         while (
             b != e &&
             cmp(
-                    primary_col.toValue<Byte>(*iter),
-                    other_col.toValue<Byte>(b.slice())
+                    other_col.toValue<Byte>(b.slice()),
+                    primary_col.toValue<Byte>(*iter)
             )) {
             b.next();
         }
+
         if (iter != _table->end() && b != e) {
-            iter.next();
+            iter = iter.next();
             b.next();
         }
         else if (b != e) {
@@ -108,10 +111,12 @@ SkipView::join(Iterator b, Iterator e)
     while (b != e) {
         auto key = other_col.toValue<Byte>(b.slice());
         auto iter = _table->lowerBound(key);
-        if (cmp(
-                key,
-                primary_col.toValue<Byte>(*iter)
-        )) {
+        if (
+                iter == _table->end() ||
+                cmp(
+                        key,
+                        primary_col.toValue<Byte>(*iter)
+                )) {
             _table->insert(b.slice());
         }
         b.next();
