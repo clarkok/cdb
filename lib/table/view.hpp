@@ -18,6 +18,7 @@ namespace cdb {
             virtual void next() = 0;
             virtual void prev() = 0;
             virtual Slice slice() = 0;
+            virtual bool equal(const IteratorImpl &b) const = 0;
         };
 
     public:
@@ -29,28 +30,36 @@ namespace cdb {
             Iterator(View *owner, IteratorImpl *pimpl)
                     : _owner(owner), _pimpl(pimpl)
             { }
+            Iterator(const Iterator &) = delete;
         public:
-            Iterator(const Iterator &) = default;
             Iterator(Iterator &&) = default;
 
             View *_owner;
             std::unique_ptr<IteratorImpl> _pimpl;
 
-            Schema *
+            inline Schema *
             getSchema() const
             { return _owner->_schema.get(); }
 
-            void
+            inline void
             next()
             { _pimpl->next(); }
 
-            void
+            inline void
             prev()
             { _pimpl->prev(); }
 
-            Slice
+            inline Slice
             slice()
             { return _pimpl->slice(); }
+
+            inline bool
+            operator == (const Iterator &b) const
+            { return _pimpl->equal(*b._pimpl); }
+
+            inline bool
+            operator != (const Iterator &b) const
+            { return !_pimpl->equal(*b._pimpl); }
 
             template <typename T>
             static Iterator make(View *owner, T* pimpl)
@@ -63,34 +72,60 @@ namespace cdb {
             friend class View;
         };
 
+        View(Schema *schema)
+                : _schema(schema)
+        { }
+
         virtual ~View() = default;
 
         /**
-         * filter records with range in this View
+         * Select some columns in this view
          *
-         * NOTE: the returned pointer may pointing to the original View
+         * the result of copying will be stored in memory only, and this View remains unchanged
+         *
+         * @param schema the schema to select
+         * @return a new View, must in memory
+         */
+        virtual View *select(Schema *schema);
+
+        /**
+         * peek records with column in the given range in this View
+         *
+         * the result of peek should contains primary keys only, and it be placed on a new View,
+         * while this View remains unchanged
          *
          * @param col column in this View to filter
          * @param lower_bound of column in this View
          * @param upper_bound of column in this View
-         * @return the pointer of the new View
+         * @return the result of peeking
          * @see View *filter(Schema::Column, Iterator, Iterator, Schema::Column)
          */
-        virtual View *filter(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound) = delete;
+        virtual View *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound) = 0;
 
         /**
-         * filter records with another View
+         * intersect this view by primary key
          *
-         * NOTE: the returned pointer may pointing to the original View
+         * the result of should performed on this View
          *
          * @param col column in this View to filter
          * @param b beginning Iterator of the other View
          * @param e ending Iterator of the other View
          * @param sel column in the other View to filter with
-         * @return the pointer of the new View
+         * @return the result of filter
          * @see View *filter(Schema::Column col, const Byte *, const Byte *)
          */
-        virtual View *filter(Schema::Column col, Iterator b, Iterator e, Schema::Column sel) = delete;
+        virtual View *intersect(Iterator b, Iterator e) = 0;
+
+        /**
+         * join another View to this, by primary key
+         *
+         * the result of join should performed on this View
+         *
+         * @param b the beginning Iterator of the other View
+         * @param e the ending Iterator of the other View
+         * @return the result of join
+         */
+        virtual View *join(Iterator b, Iterator e) = 0;
 
         /**
          * get the beginning Iterator of this View
@@ -98,7 +133,7 @@ namespace cdb {
          * @return the beginning Iterator
          * @see end()
          */
-        virtual Iterator begin() = delete;
+        virtual Iterator begin() = 0;
 
         /**
          * get the ending Iterator of this View
@@ -106,7 +141,7 @@ namespace cdb {
          * @return the ending Iterator
          * @see begin()
          */
-        virtual Iterator end() = delete;
+        virtual Iterator end() = 0;
 
         /**
          * find the lower bound of primary key in this View
@@ -115,7 +150,7 @@ namespace cdb {
          * @return the Iterator pointing to that row
          * @see upperBound
          */
-        virtual Iterator lowerBound(const Byte *primary_value) = delete;
+        virtual Iterator lowerBound(const Byte *primary_value) = 0;
 
         /**
          * find the upper bound of primary key in this View
@@ -124,7 +159,7 @@ namespace cdb {
          * @return the Iterator pointing to the row after that row
          * @see lowerBound
          */
-        virtual Iterator upperBound(const Byte *primary_value) = delete;
+        virtual Iterator upperBound(const Byte *primary_value) = 0;
     };
 }
 
