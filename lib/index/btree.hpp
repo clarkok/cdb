@@ -86,10 +86,8 @@ namespace cdb {
          * Iterator used to pointing to record in a BTree.
          *
          * The Iterator object only exists in memory, and each object hold a strong 
-         * reference to the disk block the record on. The time used to exec `begin()',
-         * `end()', `next()' and `prev()', are all O(1). However, it is expensive to copy
-         * a Block, so `next()' and `prev()' is not public, and can used only in 
-         * `forEach()' and `forEachReverse()'.
+         * reference to the disk block the where record on. The time used to exec `begin()',
+         * `end()', `next()' and `prev()', are all O(1).
          */
         class Iterator
         {
@@ -155,6 +153,10 @@ namespace cdb {
 
             Slice getValue() const
             { return _owner->getValueFromLeafEntry(getEntry()); }
+
+            void next();
+
+            void prev();
         };
 
         /** 
@@ -196,91 +198,7 @@ namespace cdb {
          * NOTE: this iterator is not a fully implemented standerd random access iterator,
          * and it should not be used in other place.
          */
-        struct NodeEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
-        {
-            Byte *entry = nullptr;
-            BTree *owner = nullptr;
-
-            NodeEntryIterator(Byte *entry, BTree *owner)
-                : entry(entry), owner(owner)
-            { }
-
-            inline bool
-            operator == (const NodeEntryIterator &i) const
-            { return owner == i.owner && entry == i.entry; }
-
-            inline bool
-            operator != (const NodeEntryIterator &i) const
-            { return !this->operator==(i); }
-
-            inline bool
-            operator < (const NodeEntryIterator &i) const
-            { return entry < i.entry; }
-
-            inline bool
-            operator <= (const NodeEntryIterator &i) const
-            { return entry <= i.entry; }
-
-            inline bool
-            operator > (const NodeEntryIterator &i) const
-            { return entry > i.entry; }
-
-            inline bool
-            operator >= (const NodeEntryIterator &i) const
-            { return entry >= i.entry; }
-
-            inline Key operator* () const;
-
-            inline NodeEntryIterator &operator +=(int);
-            inline NodeEntryIterator &operator -=(int);
-
-            inline NodeEntryIterator 
-            operator ++(int)
-            { 
-                auto ret = *this;
-                this->operator+=(1);
-                return ret;
-            };
-
-            inline NodeEntryIterator &
-            operator ++()
-            { return this->operator+=(1); }
-
-            inline NodeEntryIterator 
-            operator --(int)
-            {
-                auto ret = *this;
-                this->operator-=(1);
-                return ret;
-            }
-
-            inline NodeEntryIterator &
-            operator --()
-            { return this->operator-=(1); }
-
-            inline int operator -(const NodeEntryIterator &b) const;
-
-            inline NodeEntryIterator 
-            operator +(int n) const
-            {
-                auto ret = *this;
-                return ret += n;
-            }
-
-            inline NodeEntryIterator
-            operator -(int n) const
-            {
-                auto ret = *this;
-                return ret -= n;
-            }
-
-            inline Key 
-            operator[] (int offset) const
-            {
-                auto tmp = *this;
-                return *(tmp += offset);
-            }
-        };
+        struct NodeEntryIterator;
 
         /**
          * Iterator used when performing binary search (currently using `std::lower_bound'
@@ -289,91 +207,7 @@ namespace cdb {
          * NOTE: this iterator is not a fully implemented standerd random access iterator,
          * and it should not be used in other place.
          */
-        struct LeafEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
-        {
-            Byte *entry = nullptr;
-            BTree *owner = nullptr;
-
-            LeafEntryIterator(Byte *entry, BTree *owner)
-                : entry(entry), owner(owner)
-            { }
-
-            inline bool
-            operator == (const LeafEntryIterator &i) const
-            { return owner == i.owner && entry == i.entry; }
-
-            inline bool
-            operator != (const LeafEntryIterator &i) const
-            { return !this->operator==(i); }
-
-            inline bool
-            operator < (const LeafEntryIterator &i) const
-            { return entry < i.entry; }
-
-            inline bool
-            operator <= (const LeafEntryIterator &i) const
-            { return entry <= i.entry; }
-
-            inline bool
-            operator > (const LeafEntryIterator &i) const
-            { return entry > i.entry; }
-
-            inline bool
-            operator >= (const LeafEntryIterator &i) const
-            { return entry >= i.entry; }
-
-            inline Key operator* () const;
-
-            inline LeafEntryIterator &operator +=(int);
-            inline LeafEntryIterator &operator -=(int);
-
-            inline LeafEntryIterator 
-            operator ++(int)
-            { 
-                auto ret = *this;
-                this->operator+=(1);
-                return ret;
-            };
-
-            inline LeafEntryIterator &
-            operator ++()
-            { return this->operator+=(1); }
-
-            inline LeafEntryIterator 
-            operator --(int)
-            {
-                auto ret = *this;
-                this->operator-=(1);
-                return ret;
-            }
-
-            inline LeafEntryIterator &
-            operator --()
-            { return this->operator-=(1); }
-
-            inline int operator -(const LeafEntryIterator &b) const;
-
-            inline LeafEntryIterator 
-            operator +(int n) const
-            {
-                auto ret = *this;
-                return ret += n;
-            }
-
-            inline LeafEntryIterator
-            operator -(int n) const
-            {
-                auto ret = *this;
-                return ret -= n;
-            }
-
-            inline Key 
-            operator[] (int offset) const
-            {
-                auto tmp = *this;
-                return *(tmp += offset);
-            }
-        };
+        struct LeafEntryIterator;
 
         /** this type is used to keep path to a leaf when search. @see keepTracingToLeaf */
         typedef std::stack<Block> BlockStack;

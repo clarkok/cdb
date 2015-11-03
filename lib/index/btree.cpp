@@ -332,3 +332,11 @@ BTree::erase(Key key)
         }
     }
 }
+
+void
+BTree::Iterator::next()
+{ this->operator=(_owner->nextIterator(std::move(*this))); }
+
+void
+BTree::Iterator::prev()
+{ this->operator=(_owner->prevIterator(std::move(*this))); }

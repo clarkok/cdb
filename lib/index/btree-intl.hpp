@@ -29,6 +29,178 @@ namespace cdb {
 
     struct BTree::LeafMark
     { NodeHeader header; };
+
+    struct BTree::NodeEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
+    {
+        Byte *entry = nullptr;
+        BTree *owner = nullptr;
+
+        NodeEntryIterator(Byte *entry, BTree *owner)
+                : entry(entry), owner(owner)
+        { }
+
+        inline bool
+        operator == (const NodeEntryIterator &i) const
+        { return owner == i.owner && entry == i.entry; }
+
+        inline bool
+        operator != (const NodeEntryIterator &i) const
+        { return !this->operator==(i); }
+
+        inline bool
+        operator < (const NodeEntryIterator &i) const
+        { return entry < i.entry; }
+
+        inline bool
+        operator <= (const NodeEntryIterator &i) const
+        { return entry <= i.entry; }
+
+        inline bool
+        operator > (const NodeEntryIterator &i) const
+        { return entry > i.entry; }
+
+        inline bool
+        operator >= (const NodeEntryIterator &i) const
+        { return entry >= i.entry; }
+
+        inline Key operator* () const;
+
+        inline NodeEntryIterator &operator +=(int);
+        inline NodeEntryIterator &operator -=(int);
+
+        inline NodeEntryIterator
+        operator ++(int)
+        {
+            auto ret = *this;
+            this->operator+=(1);
+            return ret;
+        };
+
+        inline NodeEntryIterator &
+        operator ++()
+        { return this->operator+=(1); }
+
+        inline NodeEntryIterator
+        operator --(int)
+        {
+            auto ret = *this;
+            this->operator-=(1);
+            return ret;
+        }
+
+        inline NodeEntryIterator &
+        operator --()
+        { return this->operator-=(1); }
+
+        inline int operator -(const NodeEntryIterator &b) const;
+
+        inline NodeEntryIterator
+        operator +(int n) const
+        {
+            auto ret = *this;
+            return ret += n;
+        }
+
+        inline NodeEntryIterator
+        operator -(int n) const
+        {
+            auto ret = *this;
+            return ret -= n;
+        }
+
+        inline Key
+        operator[] (int offset) const
+        {
+            auto tmp = *this;
+            return *(tmp += offset);
+        }
+    };
+
+    struct BTree::LeafEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
+    {
+        Byte *entry = nullptr;
+        BTree *owner = nullptr;
+
+        LeafEntryIterator(Byte *entry, BTree *owner)
+                : entry(entry), owner(owner)
+        { }
+
+        inline bool
+        operator == (const LeafEntryIterator &i) const
+        { return owner == i.owner && entry == i.entry; }
+
+        inline bool
+        operator != (const LeafEntryIterator &i) const
+        { return !this->operator==(i); }
+
+        inline bool
+        operator < (const LeafEntryIterator &i) const
+        { return entry < i.entry; }
+
+        inline bool
+        operator <= (const LeafEntryIterator &i) const
+        { return entry <= i.entry; }
+
+        inline bool
+        operator > (const LeafEntryIterator &i) const
+        { return entry > i.entry; }
+
+        inline bool
+        operator >= (const LeafEntryIterator &i) const
+        { return entry >= i.entry; }
+
+        inline Key operator* () const;
+
+        inline LeafEntryIterator &operator +=(int);
+        inline LeafEntryIterator &operator -=(int);
+
+        inline LeafEntryIterator
+        operator ++(int)
+        {
+            auto ret = *this;
+            this->operator+=(1);
+            return ret;
+        };
+
+        inline LeafEntryIterator &
+        operator ++()
+        { return this->operator+=(1); }
+
+        inline LeafEntryIterator
+        operator --(int)
+        {
+            auto ret = *this;
+            this->operator-=(1);
+            return ret;
+        }
+
+        inline LeafEntryIterator &
+        operator --()
+        { return this->operator-=(1); }
+
+        inline int operator -(const LeafEntryIterator &b) const;
+
+        inline LeafEntryIterator
+        operator +(int n) const
+        {
+            auto ret = *this;
+            return ret += n;
+        }
+
+        inline LeafEntryIterator
+        operator -(int n) const
+        {
+            auto ret = *this;
+            return ret -= n;
+        }
+
+        inline Key
+        operator[] (int offset) const
+        {
+            auto tmp = *this;
+            return *(tmp += offset);
+        }
+    };
 }
 
 BTree::Key
