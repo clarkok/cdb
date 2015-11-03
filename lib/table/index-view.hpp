@@ -11,11 +11,29 @@ namespace cdb {
     {
         struct IteratorImpl : public View::IteratorImpl
         {
-            virtual ~IteratorImpl();
+            BTree::Iterator impl;
 
-            virtual void next();
-            virtual void prev();
-            virtual Slice slice();
+            IteratorImpl(BTree::Iterator &&impl)
+                    : impl(std::move(impl))
+            { }
+
+            virtual ~IteratorImpl() = default;
+
+            virtual void
+            next()
+            { impl.next(); }
+
+            virtual void
+            prev()
+            { impl.prev(); }
+
+            virtual Slice
+            slice()
+            { return impl.getValue(); }
+
+            virtual bool
+            equal(const View::IteratorImpl &b) const
+            { return dynamic_cast<const IndexView::IteratorImpl &>(b).impl == impl; }
         };
 
         std::unique_ptr<BTree> _tree;
@@ -26,9 +44,7 @@ namespace cdb {
 
         virtual ~IndexView() = default;
 
-        virtual View *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound);
-        virtual View *intersect(Iterator a, Iterator b);
-        virtual View *join(Iterator a, Iterator b);
+        virtual ModifiableView *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound);
 
         virtual Iterator begin();
         virtual Iterator end();

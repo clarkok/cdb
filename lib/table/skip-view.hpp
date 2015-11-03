@@ -5,7 +5,7 @@
 #include "lib/index/skip-table.hpp"
 
 namespace cdb {
-    class SkipView : public View
+    class SkipView : public ModifiableView
     {
         struct IteratorImpl : public View::IteratorImpl
         {
@@ -38,14 +38,14 @@ namespace cdb {
     public:
 
         SkipView(Schema *schema, SkipTable *table)
-                : View(schema), _table(table)
+                : ModifiableView(schema), _table(table)
         { }
 
         virtual ~SkipView() = default;
 
-        virtual View *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound);
-        virtual View *intersect(Iterator b, Iterator e);
-        virtual View *join(Iterator b, Iterator e);
+        virtual ModifiableView *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound);
+        virtual ModifiableView *intersect(Iterator b, Iterator e);
+        virtual ModifiableView *join(Iterator b, Iterator e);
         virtual Iterator begin();
         virtual Iterator end();
         virtual Iterator lowerBound(const Byte *value);

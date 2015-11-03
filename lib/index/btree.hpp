@@ -136,7 +136,7 @@ namespace cdb {
             }
 
             inline bool
-            operator == (const Iterator &iter)
+            operator == (const Iterator &iter) const
             { 
                 return _owner == iter._owner &&
                      _block.index() == iter._block.index() &&
@@ -144,7 +144,7 @@ namespace cdb {
             }
 
             inline bool
-            operator != (const Iterator &iter)
+            operator != (const Iterator &iter) const
             { return !this->operator==(iter); }
 
             inline const Byte *

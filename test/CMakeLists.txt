@@ -24,7 +24,7 @@ add_executable(test-main test-main.cpp test-inc.hpp
         ${INDEX_TEST_SRCS}
         ${PARSER_TEST_SRCS}
         ${TABLE_TEST_SRCS}
-        table/skip-view-test.cpp)
+        )
 
 if ("${CMAKE_CXX_COMPILER_ID}" EQUAL "MSVC")
     target_link_libraries(test-main gtest utils driver index)

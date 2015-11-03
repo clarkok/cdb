@@ -7,6 +7,8 @@
 #include "schema.hpp"
 
 namespace cdb {
+    class ModifiableView;
+
     class View
     {
     protected:
@@ -78,6 +80,10 @@ namespace cdb {
 
         virtual ~View() = default;
 
+        Schema *
+        getSchema() const
+        { return _schema.get(); }
+
         /**
          * Select some columns in this view
          *
@@ -86,7 +92,7 @@ namespace cdb {
          * @param schema the schema to select
          * @return a new View, must in memory
          */
-        virtual View *select(Schema *schema);
+        virtual ModifiableView *select(Schema *schema);
 
         /**
          * peek records with column in the given range in this View
@@ -100,32 +106,7 @@ namespace cdb {
          * @return the result of peeking
          * @see View *filter(Schema::Column, Iterator, Iterator, Schema::Column)
          */
-        virtual View *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound) = 0;
-
-        /**
-         * intersect this view by primary key
-         *
-         * the result of should performed on this View
-         *
-         * @param col column in this View to filter
-         * @param b beginning Iterator of the other View
-         * @param e ending Iterator of the other View
-         * @param sel column in the other View to filter with
-         * @return the result of filter
-         * @see View *filter(Schema::Column col, const Byte *, const Byte *)
-         */
-        virtual View *intersect(Iterator b, Iterator e) = 0;
-
-        /**
-         * join another View to this, by primary key
-         *
-         * the result of join should performed on this View
-         *
-         * @param b the beginning Iterator of the other View
-         * @param e the ending Iterator of the other View
-         * @return the result of join
-         */
-        virtual View *join(Iterator b, Iterator e) = 0;
+        virtual ModifiableView *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound) = 0;
 
         /**
          * get the beginning Iterator of this View
@@ -160,6 +141,42 @@ namespace cdb {
          * @see lowerBound
          */
         virtual Iterator upperBound(const Byte *primary_value) = 0;
+    };
+
+    class ModifiableView : public View
+    {
+    public:
+        ModifiableView(Schema *schema)
+                : View(schema)
+        { };
+
+        virtual ~ModifiableView() = default;
+
+        /**
+         * intersect this view by primary key
+         *
+         * the result of should performed on this View
+         *
+         * @param col column in this View to filter
+         * @param b beginning Iterator of the other View
+         * @param e ending Iterator of the other View
+         * @param sel column in the other View to filter with
+         * @return the result of filter
+         * @see View *filter(Schema::Column col, const Byte *, const Byte *)
+         */
+        virtual ModifiableView *intersect(Iterator b, Iterator e) = 0;
+
+        /**
+         * join another View to this, by primary key
+         *
+         * the result of join should performed on this View
+         *
+         * @param b the beginning Iterator of the other View
+         * @param e the ending Iterator of the other View
+         * @return the result of join
+         */
+        virtual ModifiableView *join(Iterator b, Iterator e) = 0;
+
     };
 }
 

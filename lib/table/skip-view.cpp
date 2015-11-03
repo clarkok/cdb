@@ -19,7 +19,7 @@ View::Iterator
 SkipView::upperBound(const Byte *value)
 { return Iterator::make(this, new SkipView::IteratorImpl(_table->upperBound(value))); }
 
-View *
+ModifiableView *
 SkipView::peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound)
 {
     auto primary_col = _schema->getPrimaryColumn();
@@ -39,13 +39,15 @@ SkipView::peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bo
         }
     }
 
-    Schema::Factory schema_builder;
-    schema_builder.addIntegerField(primary_col.getField()->name);
-
-    return new SkipView(schema_builder.release(), table);
+    return new SkipView(
+            Schema::Factory()
+                    .addIntegerField(primary_col.getField()->name)
+                    .release(),
+            table
+    );
 }
 
-View *
+ModifiableView *
 SkipView::intersect(Iterator b, Iterator e)
 {
     auto primary_col = _schema->getColumnById(0);
@@ -96,7 +98,7 @@ SkipView::intersect(Iterator b, Iterator e)
     return this;
 }
 
-View *
+ModifiableView *
 SkipView::join(Iterator b, Iterator e)
 {
     auto primary_col = _schema->getColumnById(0);

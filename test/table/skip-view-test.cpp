@@ -117,7 +117,7 @@ struct ViewTestStruct
     int value;
 };
 
-TEST_F(SkipViewTest, peek)
+TEST_F(SkipViewTest, Peek)
 {
     SkipTable *table = new SkipTable(
             0,

@@ -5,7 +5,7 @@
 
 using namespace cdb;
 
-View *
+ModifiableView *
 View::select(Schema *schema)
 {
     SkipTable *table = new SkipTable(
