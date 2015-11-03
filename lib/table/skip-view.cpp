@@ -52,7 +52,7 @@ View *
 SkipView::intersect(Iterator b, Iterator e)
 {
     auto primary_col = _schema->getColumnById(0);
-    auto other_col = b._owner->_schema->getColumnById(0);
+    auto other_col = b.getSchema()->getColumnById(0);
 
     assert(primary_col.getType() == Schema::Field::Type::INTEGER);
     assert(primary_col.getType() == other_col.getType());
@@ -97,9 +97,9 @@ View *
 SkipView::join(Iterator b, Iterator e)
 {
     auto primary_col = _schema->getColumnById(0);
-    auto other_col = b._owner->_schema->getColumnById(0);
+    auto other_col = b.getSchema()->getColumnById(0);
 
-    assert(_schema->getRecordSize() == b._owner->_schema->getRecordSize());
+    assert(_schema->getRecordSize() == b.getSchema()->getRecordSize());
     assert(primary_col.getType() == Schema::Field::Type::INTEGER);
     assert(primary_col.getType() == other_col.getType());
 
@@ -110,7 +110,7 @@ SkipView::join(Iterator b, Iterator e)
         auto iter = _table->lowerBound(key);
         if (cmp(
                 key,
-                primary_col.toValue(*iter)
+                primary_col.toValue<Byte>(*iter)
         )) {
             _table->insert(b.slice());
         }
