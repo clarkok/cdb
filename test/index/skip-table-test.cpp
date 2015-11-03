@@ -11,7 +11,7 @@
 using namespace cdb;
 
 static const int SMALL_NUMBER = 10;
-static const int LARGE_NUMBER = 1000000;  // tested up to 1,000,000. make it small to less the test time
+static const int LARGE_NUMBER = 10000;  // tested up to 1,000,000. make it small to less the test time
 
 class SkipTableTest : public ::testing::Test
 {
@@ -47,7 +47,7 @@ protected:
 
     template <typename T>
     ConstSlice toConstSlice(T &value)
-    { return ConstSlice(reinterpret_cast<SkipTable::Key>(&value), sizeof(T)); }
+    { return ConstSlice(reinterpret_cast<SkipTable::Key>(&value), static_cast<Length>(sizeof(T))); }
 };
 
 TEST_F(SkipTableTest, Insert)

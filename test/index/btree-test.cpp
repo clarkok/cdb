@@ -111,8 +111,6 @@ protected:
         }
     }
 };
-  
-std::ofstream fout("./test.log");
 
 TEST_F(BTreeTest, MakeKey)
 {
@@ -164,8 +162,6 @@ TEST_F(BTreeTest, Insert)
     for (int i = 0; i < TEST_NUMBER; ++i) {
         auto iter = uut->insert(uut->makeKey(&i));
         *reinterpret_cast<int*>(iter.getValue().content()) = i;
-        treeDump(fout);
-        fout.flush();
     }
 
     for (int i = 0; i < TEST_NUMBER; ++i) {

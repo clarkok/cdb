@@ -84,3 +84,18 @@ TEST_F(BasicAccesserTest, Free)
 
     block = uut->aquire(uut->allocateBlock());
 }
+
+TEST_F(BasicAccesserTest, BlockSelfAssignment)
+{
+    std::unique_ptr<BasicDriver> drv(new BasicDriver(TEST_PATH));
+    std::unique_ptr<BitmapAllocator> allocator(new BitmapAllocator(drv.get(), 0));
+    std::unique_ptr<BasicAccesser> uut(new BasicAccesser(drv.get(), allocator.get()));
+
+    auto block = uut->aquire(uut->allocateBlock());
+
+    std::strcpy(reinterpret_cast<char*>(block.content()), TEST_STRING);
+    block = block;
+    EXPECT_EQ(0, std::strcmp(TEST_STRING, reinterpret_cast<char*>(block.content())));
+    *block.content() = 'V';
+    EXPECT_EQ('V', *block.content());
+}
