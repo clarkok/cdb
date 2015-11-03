@@ -1,3 +1,4 @@
+#include <cassert>
 #include "driver-accesser.hpp"
 
 using namespace cdb;
@@ -15,6 +16,8 @@ Block::operator = (const Block &block)
 Block &
 Block::operator = (Block &&block)
 {
+    assert(this != &block);
+
     if (_index) {
         _owner->release(_index);
     }
