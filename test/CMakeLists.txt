@@ -14,6 +14,7 @@ add_subdirectory(utils)
 add_subdirectory(driver)
 add_subdirectory(index)
 add_subdirectory(parser)
+add_subdirectory(table)
 
 find_library(profiler profiler /usr/lib)
 

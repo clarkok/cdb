@@ -110,7 +110,7 @@ TEST_F(SkipViewTest, Join)
     EXPECT_TRUE(iter == uut->end());
 }
 
-struct SkipViewTestStruct
+struct ViewTestStruct
 {
     int id;
     int padding;
@@ -125,7 +125,7 @@ TEST_F(SkipViewTest, peek)
     );
 
     for (int i = 0; i < TEST_NUMBER; ++i) {
-        SkipViewTestStruct value = {i, i + 1, i * 2};
+        ViewTestStruct value = {i, i + 1, i * 2};
         table->insert(toConstSlice(value));
     }
     Schema *schema = Schema::Factory()
