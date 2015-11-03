@@ -60,12 +60,29 @@ namespace cdb {
             Field::ID field_id;
             std::size_t offset;
 
+            inline Field *
+            getField() const
+            { return &owner->_fields[field_id]; }
+
+            inline Field::Type
+            getType() const
+            { return getField()->type; }
+
+            inline Slice
+            getValue(Slice row)
+            {
+                return row.subSlice(
+                        static_cast<Length>(offset),
+                        static_cast<Length>(getFieldSize(getField()))
+                );
+            }
+
             /**
              * Fetch the data of this column in a row
              */
             template<typename T>
             T *toValue(Slice row)
-            { return *reinterpret_cast<T*>(row.content() + offset); }
+            { return reinterpret_cast<T*>(row.content() + offset); }
         };
 
     private:
@@ -106,6 +123,13 @@ namespace cdb {
          */
         Column getColumnById(Field::ID id);
 
+        /**
+         * get the primary column
+         *
+         * @return the primary key's column
+         */
+        Column getPrimaryColumn();
+
         class Factory
         {
             std::unique_ptr<Schema> _schema;
@@ -113,7 +137,8 @@ namespace cdb {
             void addField(Field::Type type, std::string name, std::size_t length);
         public:
             Factory();
-            std::unique_ptr<Schema> reset();
+            Schema *reset();
+            Schema *release();
 
             void addCharField(std::string name, std::size_t length);
             void addFloatField(std::string name);

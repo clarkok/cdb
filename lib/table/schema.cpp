@@ -45,15 +45,24 @@ Schema::getColumnById(Field::ID id)
     return Column{this, iter->id, offset};
 }
 
+Schema::Column
+Schema::getPrimaryColumn()
+{ return getColumnById(_primary_field); }
+
 Schema::Factory::Factory()
 { reset(); }
 
-std::unique_ptr<Schema>
+Schema *
 Schema::Factory::reset()
 {
-    std::unique_ptr<Schema> ret(new Schema());
-    std::swap(ret, _schema);
+    auto ret = _schema.release();
+    _schema.reset(new Schema());
     return ret;
+}
+
+Schema *
+Schema::Factory::release(){
+    return _schema.release();
 }
 
 void
