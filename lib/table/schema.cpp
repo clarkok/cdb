@@ -1,121 +1,94 @@
 #include <cassert>
+#include <lib/driver/driver.hpp>
 
 #include "schema.hpp"
 
 using namespace cdb;
 
-SchemaFactory::SchemaFactory()
-{ reset(); }
-
-std::unique_ptr<Schema>
-SchemaFactory::reset()
-{
-    auto ret = std::move(_schema);
-    _schema.reset(new Schema());
-    return ret;
-}
-
-void
-SchemaFactory::addIntegerField(std::string name)
-{
-    _schema->_fields.emplace_back(Field{
-            FieldTypeSpec::INTEGER,
-            name
-        });
-
-    if (_schema->_primary < 0) {
-        _schema->_primary = _schema->_fields.size() - 1;
-    }
-}
-
-void
-SchemaFactory::addFloatField(std::string name)
-{
-    _schema->_fields.emplace_back(Field{
-            FieldTypeSpec::FLOAT,
-            name
-        });
-}
-
-void
-SchemaFactory::addCharField(std::string name, int length)
-{
-    name.resize(name.length() + sizeof(length));
-    std::copy(
-            reinterpret_cast<const char*>(&length),
-            reinterpret_cast<const char*>(&length) + sizeof(length),
-            name.end() - sizeof(length)
-        );
-    _schema->_fields.emplace_back(Field{
-            FieldTypeSpec::CHAR,
-            name
-        });
-}
-
-void
-SchemaFactory::addTextField(std::string name)
-{
-    _schema->_fields.emplace_back(Field{
-            FieldTypeSpec::TEXT,
-            name
-        });
-}
-
-void
-SchemaFactory::setPrimary(std::string name)
-{
-    for (
-            auto iter = _schema->_fields.begin();
-            iter != _schema->_fields.end();
-            ++iter
-    ) {
-        if (name == 
-                (iter->type.spec == FieldTypeSpec::CHAR 
-                 ? iter->name.substr(0, iter->name.length() - 4) 
-                 : iter->name)
-        ) {
-            _schema->_primary = iter - _schema->_fields.begin();
-            return;
-        }
-    }
-}
-
-std::size_t 
-Schema::getFieldSizeByType(FieldType type) 
-{
-    switch (type.spec) {
-        case FieldTypeSpec::INTEGER:
-            return 4;
-        case FieldTypeSpec::FLOAT:
-            return 4;
-        case FieldTypeSpec::CHAR:
-            return type.length;
-        case FieldTypeSpec::TEXT:
-            return 4;       // TODO
-        default:
-            return 0;
-    }
-}
+std::size_t
+Schema::getFieldSize(const Field *field)
+{ return field->length; }
 
 std::size_t
 Schema::getRecordSize() const
 {
     std::size_t ret = 0;
-    for (auto f : _fields) {
-        ret += getFieldSizeByType(f.type);
+    for (auto &field : _fields) {
+        ret += getFieldSize(&field);
     }
     return ret;
 }
 
-Column
+Schema::Column
 Schema::getColumnByName(std::string name)
 {
     std::size_t offset = 0;
-    for (auto f : _fields) {
-        if (f.name == name) {
-            return Column(&f, offset);
+    for (auto &field : _fields) {
+        if (field.name == name) {
+            return Column{this, field.id, offset};
         }
-        offset += getFieldSizeByType(f.type);
+        else {
+            offset += getFieldSize(&field);
+        }
     }
-    throw 1;    // TODO throw column not found exception
+    return Column{this, 0, 0};
+}
+
+Schema::Column
+Schema::getColumnById(Field::ID id)
+{
+    std::size_t offset = 0;
+    auto iter = _fields.begin();
+    while (id--) {
+        offset += getFieldSize(&*iter);
+    }
+    return Column{this, iter->id, offset};
+}
+
+Schema::Factory::Factory()
+{ reset(); }
+
+std::unique_ptr<Schema>
+Schema::Factory::reset()
+{
+    std::unique_ptr<Schema> ret(new Schema());
+    std::swap(ret, _schema);
+    return ret;
+}
+
+void
+Schema::Factory::addCharField(std::string name, std::size_t length)
+{ addField(Field::Type::CHAR, name, length); }
+
+void
+Schema::Factory::addFloatField(std::string name)
+{ addField(Field::Type::FLOAT, name, sizeof(float)); }
+
+void
+Schema::Factory::addIntegerField(std::string name)
+{
+    addField(Field::Type::INTEGER, name, sizeof(int));
+    if (_schema->_primary_field == std::numeric_limits<Field::ID>::max()) {
+        _schema->_primary_field = _schema->_fields.back().id;
+    }
+}
+
+void
+Schema::Factory::addTextField(std::string name)
+{ addField(Field::Type::TEXT, name, sizeof(int)); }
+
+void
+Schema::Factory::setPrimary(std::string name)
+{ _schema->_primary_field = _schema->getColumnByName(name).field_id; }
+
+void
+Schema::Factory::addField(Field::Type type, std::string name, std::size_t length)
+{
+    _schema->_fields.emplace_back(
+            type,
+            length,
+            name,
+            static_cast<Field::ID>(_schema->_fields.size()),
+            0
+    );
 }

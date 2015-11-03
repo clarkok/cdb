@@ -5,7 +5,7 @@ using namespace cdb;
 std::unique_ptr<Schema>
 Table::getSchemaForRootTable()
 {
-    SchemaFactory factory;
+    Schema::Factory factory;
 
     factory.addIntegerField("id");
     factory.addCharField("name", MAX_TABLE_NAME_LENGTH);
