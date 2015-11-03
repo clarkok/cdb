@@ -17,7 +17,7 @@ add_subdirectory(parser)
 
 find_library(profiler profiler /usr/lib)
 
-add_executable(test-main test-main.cpp 
+add_executable(test-main test-main.cpp test-inc.hpp
     ${UTILS_TEST_SRCS} 
     ${DRIVER_TEST_SRCS}
     ${INDEX_TEST_SRCS}
@@ -27,6 +27,6 @@ add_executable(test-main test-main.cpp
 if ("${CMAKE_CXX_COMPILER_ID}" EQUAL "MSVC")
     target_link_libraries(test-main gtest utils driver index)
 else ()
-    target_link_libraries(test-main gtest pthread utils driver index)
+    target_link_libraries(test-main gtest pthread utils driver index table)
 endif ()
 add_test(MainTest test-main)

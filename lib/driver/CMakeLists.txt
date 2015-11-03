@@ -1,3 +1,4 @@
-add_library(driver STATIC driver.cpp basic-driver.cpp block-allocator.cpp bitmap-allocator.cpp driver-accesser.cpp
-    basic-accesser.cpp)
+add_library(driver STATIC driver.cpp driver.hpp basic-driver.cpp basic-driver.hpp block-allocator.cpp
+        block-allocator.hpp bitmap-allocator.cpp bitmap-allocator.hpp driver-accesser.cpp driver-accesser.hpp
+        basic-accesser.cpp basic-accesser.hpp)
 target_link_libraries(driver utils)
