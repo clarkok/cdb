@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "lib/utils/comparator.hpp"
 #include "lib/table/skip-view.hpp"
 
 using namespace cdb;
@@ -15,7 +16,7 @@ protected:
     {
         SkipTable *table = new SkipTable(
                 0,
-                SkipView::getIntegerCompareFunc()
+                Comparator::getIntegerCompareFuncLT()
         );
 
         for (int i = 0; i < TEST_NUMBER; ++i) {
@@ -54,7 +55,7 @@ TEST_F(SkipViewTest, Intersect)
 {
     SkipTable *table = new SkipTable(
             0,
-            SkipView::getIntegerCompareFunc()
+            Comparator::getIntegerCompareFuncLT()
     );
 
     for (int i = -TEST_NUMBER; i < TEST_NUMBER + 5; i += 2) {
@@ -80,7 +81,7 @@ TEST_F(SkipViewTest, Join)
 {
     SkipTable *table = new SkipTable(
             0,
-            SkipView::getIntegerCompareFunc()
+            Comparator::getIntegerCompareFuncLT()
     );
 
     for (int i = -TEST_NUMBER; i < 0; ++i) {
@@ -121,7 +122,7 @@ TEST_F(SkipViewTest, Peek)
 {
     SkipTable *table = new SkipTable(
             0,
-            SkipView::getIntegerCompareFunc()
+            Comparator::getIntegerCompareFuncLT()
     );
 
     for (int i = 0; i < TEST_NUMBER; ++i) {

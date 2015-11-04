@@ -1,6 +1,7 @@
 #ifndef _DB_TABLE_VIEW_H_
 #define _DB_TABLE_VIEW_H_
 
+#include <functional>
 #include <memory>
 #include <arpa/nameser.h>
 
@@ -74,6 +75,14 @@ namespace cdb {
             friend class View;
         };
 
+        typedef std::function<bool(const Schema*, ConstSlice)> Filter;
+
+        static Filter getDefaultFilter()
+        {
+            static Filter ret = [](const Schema *, ConstSlice) -> bool { return true; };
+            return ret;
+        }
+
         View(Schema *schema)
                 : _schema(schema)
         { }
@@ -92,7 +101,22 @@ namespace cdb {
          * @param schema the schema to select
          * @return a new View, must in memory
          */
-        virtual ModifiableView *select(Schema *schema);
+        virtual ModifiableView *select(Schema *schema, Filter filter = getDefaultFilter());
+
+        /**
+         * Select some columns in this view
+         *
+         * the result of copying will be stored in memory only, and this View remains unchanged
+         *
+         * @param schema the schema to select
+         * @return a new View, must in memory
+         */
+        virtual ModifiableView *selectIndexed(
+                Schema *schema,
+                Iterator b,
+                Iterator e,
+                Filter filter = getDefaultFilter()
+        );
 
         /**
          * peek records with column in the given range in this View

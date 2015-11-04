@@ -1,6 +1,7 @@
 #ifndef _DB_TABLE_SCHEMA_H_
 #define _DB_TABLE_SCHEMA_H_
 
+#include <exception>
 #include <memory>
 #include <string>
 #include <vector>
@@ -8,6 +9,18 @@
 #include "lib/utils/slice.hpp"
 
 namespace cdb {
+    struct SchemaColumnNotFoundException : public std::exception
+    {
+        std::string name;
+        SchemaColumnNotFoundException(std::string name)
+                : name(name)
+        { }
+
+        virtual const char *
+        what() const _GLIBCXX_NOEXCEPT
+        { return (name + " not found").c_str(); }
+    };
+
     /**
      * class to representing a Schema for database table
      */
@@ -129,6 +142,13 @@ namespace cdb {
          * @return the primary key's column
          */
         Column getPrimaryColumn();
+
+        /**
+         * get the copy of this schema
+         *
+         * @return the pointer to the copy
+         */
+        Schema *copy() const;
 
         inline decltype(_fields.cbegin())
         begin() const

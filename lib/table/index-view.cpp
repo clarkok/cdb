@@ -1,3 +1,4 @@
+#include "lib/utils/comparator.hpp"
 #include "index-view.hpp"
 #include "skip-view.hpp"
 
@@ -53,10 +54,10 @@ IndexView::peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_b
 
     SkipTable *table = new SkipTable(
             0,
-            SkipView::getIntegerCompareFunc()
+            Comparator::getIntegerCompareFuncLT()
     );
 
-    auto cmp = SkipView::getCompareFuncForType(col.getType());
+    auto cmp = Comparator::getCompareFuncByTypeLT(col.getType());
     _tree->forEach([&](const BTree::Iterator &iter) {
         auto *value = col.toValue<Byte>(iter.getValue());
         if (cmp(lower_bound, value) && cmp(value, upper_bound)) {

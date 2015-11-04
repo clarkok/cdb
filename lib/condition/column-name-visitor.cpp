@@ -1,5 +1,26 @@
-//
-// Created by c on 11/4/15.
-//
-
+#include "condition.hpp"
 #include "column-name-visitor.hpp"
+
+using namespace cdb;
+
+void
+ColumnNameVisitor::visit(AndExpr *expr)
+{
+    expr->lh->accept(this);
+    expr->rh->accept(this);
+}
+
+void
+ColumnNameVisitor::visit(OrExpr *expr)
+{
+    expr->lh->accept(this);
+    expr->rh->accept(this);
+}
+
+void
+ColumnNameVisitor::visit(CompareExpr *expr)
+{ _column_names.insert(expr->column_name); }
+
+std::set<std::string>
+ColumnNameVisitor::get() const
+{ return _column_names; }

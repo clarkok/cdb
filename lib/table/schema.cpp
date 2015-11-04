@@ -31,7 +31,7 @@ Schema::getColumnByName(std::string name)
             offset += getFieldSize(&field);
         }
     }
-    return Column{this, 0, 0};
+    throw SchemaColumnNotFoundException(name);
 }
 
 Schema::Column
@@ -48,6 +48,15 @@ Schema::getColumnById(Field::ID id)
 Schema::Column
 Schema::getPrimaryColumn()
 { return getColumnById(_primary_field); }
+
+Schema *
+Schema::copy() const
+{
+    Schema *ret = new Schema();
+    ret->_fields = _fields;
+    ret->_primary_field = _primary_field;
+    return ret;
+}
 
 Schema::Factory::Factory()
 { reset(); }

@@ -50,12 +50,6 @@ namespace cdb {
         virtual Iterator end();
         virtual Iterator lowerBound(const Byte *value);
         virtual Iterator upperBound(const Byte *value);
-
-        static SkipTable::Comparator getIntegerCompareFunc();
-        static SkipTable::Comparator getFloatCompareFunc();
-        static SkipTable::Comparator getCharCompareFunc();
-
-        static SkipTable::Comparator getCompareFuncForType(Schema::Field::Type type);
     };
 }
 

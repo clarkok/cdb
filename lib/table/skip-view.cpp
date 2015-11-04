@@ -1,4 +1,5 @@
 #include <iostream>
+#include "lib/utils/comparator.hpp"
 #include "skip-view.hpp"
 
 using namespace cdb;
@@ -27,10 +28,10 @@ SkipView::peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bo
 
     SkipTable *table = new SkipTable(
             0,
-            getIntegerCompareFunc()
+            Comparator::getIntegerCompareFuncLT()
     );
 
-    auto cmp = getCompareFuncForType(col.getType());
+    auto cmp = Comparator::getCompareFuncByTypeLT(col.getType());
     auto limit = _table->end();
     for (auto iter = _table->begin(); iter != limit; iter = iter.next()) {
         auto *value = col.toValue<Byte>(*iter);
@@ -56,7 +57,7 @@ SkipView::intersect(Iterator b, Iterator e)
     assert(primary_col.getType() == Schema::Field::Type::INTEGER);
     assert(primary_col.getType() == other_col.getType());
 
-    auto cmp = getCompareFuncForType(primary_col.getType());
+    auto cmp = Comparator::getCompareFuncByTypeLT(primary_col.getType());
 
     auto iter = _table->begin();
     while (true) {
@@ -108,7 +109,7 @@ SkipView::join(Iterator b, Iterator e)
     assert(primary_col.getType() == Schema::Field::Type::INTEGER);
     assert(primary_col.getType() == other_col.getType());
 
-    auto cmp = getCompareFuncForType(primary_col.getType());
+    auto cmp = Comparator::getCompareFuncByTypeLT(primary_col.getType());
 
     while (b != e) {
         auto key = other_col.toValue<Byte>(b.slice());
@@ -127,53 +128,3 @@ SkipView::join(Iterator b, Iterator e)
     return this;
 }
 
-SkipTable::Comparator
-SkipView::getCompareFuncForType(Schema::Field::Type type)
-{
-    switch (type) {
-        case Schema::Field::Type::INTEGER:
-            return getIntegerCompareFunc();
-        case Schema::Field::Type::FLOAT:
-            return getFloatCompareFunc();
-        case Schema::Field::Type::CHAR:
-            return getCharCompareFunc();
-        default:
-            assert(false);
-    }
-}
-
-SkipTable::Comparator
-SkipView::getIntegerCompareFunc()
-{
-    static auto func =
-            [](SkipTable::Key a, SkipTable::Key b)
-            {
-                return *reinterpret_cast<const int*>(a) <
-                       *reinterpret_cast<const int*>(b);
-            };
-    return func;
-}
-
-SkipTable::Comparator
-SkipView::getFloatCompareFunc()
-{
-    static auto func =
-            [](SkipTable::Key a, SkipTable::Key b)
-            {
-                return *reinterpret_cast<const float*>(a) <
-                       *reinterpret_cast<const float*>(b);
-            };
-    return func;
-}
-
-SkipTable::Comparator
-SkipView::getCharCompareFunc()
-{
-    static auto func =
-            [](SkipTable::Key a, SkipTable::Key b)
-            {
-                return *reinterpret_cast<const float*>(a) <
-                       *reinterpret_cast<const float*>(b);
-            };
-    return func;
-}
