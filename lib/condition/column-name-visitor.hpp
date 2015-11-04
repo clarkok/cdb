@@ -1,0 +1,8 @@
+//
+// Created by c on 11/4/15.
+//
+
+#ifndef CDB_COLUMN_NAME_VISITOR_HPP
+#define CDB_COLUMN_NAME_VISITOR_HPP
+
+#endif //CDB_COLUMN_NAME_VISITOR_HPP
