@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <lib/utils/convert.hpp>
 
 #include "schema.hpp"
 #include "lib/condition/condition.hpp"
@@ -14,7 +15,7 @@
 #include "index-view.hpp"
 
 namespace cdb {
-    struct TableFieldNotSupportedException : public std::exception
+    struct TableTypeNotSupportedException : public std::exception
     {
         virtual const char *
         what() const _GLIBCXX_NOEXCEPT
@@ -72,13 +73,14 @@ namespace cdb {
 
         static std::set<std::string> getColumnNames(ConditionExpr *expr);
         static std::set<std::string> mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set);
-        Schema *buildSchemaFromColumnNames(std::set<std::string>(columns_set));
+        Schema *buildSchemaFromColumnNames(std::set<std::string> columns_set);
         BlockIndex findIndex(std::string column_name);
         Schema *buildSchemaForIndex(std::string column_name);
         inline Length calculateThreshold() const;
         View::Filter buildFilter(ConditionExpr *condition);
 
         IndexView *buildDataView();
+        BTree *buildDataBTree();
         BTree *buildIndexBTree(BlockIndex root, Schema *index_schema);
 
     public:
@@ -89,16 +91,40 @@ namespace cdb {
 
         static Schema *getSchemaForRootTable();
 
+        Schema *buildSchemaFromColumnNames(std::vector<std::string> column_names);
+
         /**
+         * Select on this table
+         *
          * @param schema null if select all fields
          * @param condition null if select all rows
          * @param accesser call on each row
          */
         void select(Schema *schema, ConditionExpr *condition, Accesser accesser);
 
+        /**
+         * Create an index on this table
+         *
+         * @param column_name the name of column to create index on
+         * @return root block of the new Index
+         */
         BlockIndex createIndex(std::string column_name);
 
+        /**
+         * Drop an index on this table
+         *
+         * @param column_name the name of column to drop index on
+         */
         void dropIndex(std::string column_name);
+
+        /**
+         * Insert records into this table
+         *
+         * @param schema the schema in rows
+         * @param rows data
+         * @param row_count
+         */
+        void insert(Schema *schema, const std::vector<ConstSlice> &rows);
 
         class Factory
         {
@@ -115,6 +141,106 @@ namespace cdb {
             {
                 _table->_indices.emplace_back(column_name, root);
                 return *this;
+            }
+        };
+
+        class RecordBuilder
+        {
+            std::unique_ptr<Schema> _schema;
+            std::vector<Buffer> _buffs;
+            Length _column_index;
+
+            RecordBuilder(Schema *schema)
+                    : _schema(schema), _column_index(0)
+            { }
+
+            friend class Table;
+        public:
+            inline std::vector<ConstSlice>
+            getRows() const
+            {
+                std::vector<ConstSlice> ret;
+                for (auto &buffer : _buffs) {
+                    ret.emplace_back(buffer);
+                }
+                return ret;
+            }
+
+            inline void
+            addRow()
+            {
+                _buffs.emplace_back(_schema->getRecordSize());
+                _column_index = 0;
+            }
+
+            inline Schema::Field::Type
+            currentType() const
+            { return _schema->getColumnById(_column_index).getType(); }
+
+            inline void
+            addInteger(std::string literal)
+            {
+                auto column = _schema->getColumnById(_column_index);
+                auto type = column.getType();
+                assert(type == Schema::Field::Type::INTEGER || type == Schema::Field::Type::FLOAT);
+                Convert::fromString(
+                        type,
+                        column.getField()->length,
+                        literal,
+                        column.getValue(Slice(_buffs.back()))
+                );
+
+                ++_column_index;
+            }
+
+            inline void
+            addFloat(std::string literal)
+            {
+                auto column = _schema->getColumnById(_column_index);
+                auto type = column.getType();
+                assert(type == Schema::Field::Type::FLOAT);
+                Convert::fromString(
+                        type,
+                        column.getField()->length,
+                        literal,
+                        column.getValue(Slice(_buffs.back()))
+                );
+
+                ++_column_index;
+            }
+
+            inline void
+            addChar(std::string literal)
+            {
+                auto column = _schema->getColumnById(_column_index);
+                auto type = column.getType();
+                assert(type == Schema::Field::Type::CHAR);
+                Convert::fromString(
+                        type,
+                        column.getField()->length,
+                        literal,
+                        column.getValue(Slice(_buffs.back()))
+                );
+
+                ++_column_index;
+            }
+
+            inline void
+            addValue(std::string literal)
+            {
+                switch (currentType()) {
+                    case Schema::Field::Type::INTEGER:
+                        addInteger(literal);
+                        break;
+                    case Schema::Field::Type::FLOAT:
+                        addFloat(literal);
+                        break;
+                    case Schema::Field::Type::CHAR:
+                        addChar(literal);
+                        break;
+                    default:
+                        throw TableTypeNotSupportedException();
+                }
             }
         };
     };

@@ -22,6 +22,7 @@ namespace cdb {
         };
 
         Buffer fromString(Schema::Field::Type type, Length length, std::string literal);
+        void fromString(Schema::Field::Type type, Length length, std::string literal, Slice buff);
         std::string toString(Schema::Field::Type type, ConstSlice slice);
 
         Buffer next(Schema::Field::Type type, Length length, ConstSlice original);

@@ -17,8 +17,8 @@ View::select(Schema *schema, Filter filter)
     std::vector<Schema::Field::ID> map_table;
     for (auto &field : *schema) {
         auto col_in_this = _schema->getColumnByName(field.name);
-        map_table.push_back(col_in_this.field_id);
         assert(col_in_this.getType() == field.type);
+        map_table.push_back(col_in_this.field_id);
     }
 
     Buffer row(schema->getRecordSize());
@@ -59,8 +59,8 @@ View::selectRange(Schema *schema, Iterator b, Iterator e, Filter filter)
     std::vector<Schema::Field::ID> map_table;
     for (auto &field : *schema) {
         auto col_in_this = _schema->getColumnByName(field.name);
-        map_table.push_back(col_in_this.field_id);
         assert(col_in_this.getType() == field.type);
+        map_table.push_back(col_in_this.field_id);
     }
 
     Buffer row(schema->getRecordSize());
@@ -105,8 +105,8 @@ View::selectIndexed(Schema *schema, Iterator b, Iterator e, cdb::View::Filter fi
     std::vector<Schema::Field::ID> map_table;
     for (auto &field : *schema) {
         auto col_in_this = _schema->getColumnByName(field.name);
-        map_table.push_back(col_in_this.field_id);
         assert(col_in_this.getType() == field.type);
+        map_table.push_back(col_in_this.field_id);
     }
 
     Buffer row(schema->getRecordSize());

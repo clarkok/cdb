@@ -19,6 +19,17 @@ Schema::getRecordSize() const
     return ret;
 }
 
+bool
+Schema::hasColumn(std::string name) const
+{
+    for (auto &field : _fields) {
+        if (field.name == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Schema::Column
 Schema::getColumnByName(std::string name) const
 {

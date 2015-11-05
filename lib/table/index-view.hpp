@@ -12,10 +12,10 @@ namespace cdb {
         struct IteratorImpl : public View::IteratorImpl
         {
             BTree::Iterator impl;
-            bool select_key = false;
+            int key_length = 0;
 
-            IteratorImpl(BTree::Iterator &&iter, bool select_key)
-                    : impl(std::move(iter)), select_key(select_key)
+            IteratorImpl(BTree::Iterator &&iter, int key_length)
+                    : impl(std::move(iter)), key_length(key_length)
             { }
 
             virtual ~IteratorImpl() = default;
@@ -30,12 +30,12 @@ namespace cdb {
 
             virtual ConstSlice
             constSlice()
-            { return select_key ? impl.getKey() : impl.getValue(); }
+            { return key_length ? ConstSlice(impl.getKey(), key_length) : impl.getValue(); }
 
             virtual Slice
             slice()
             {
-                assert(!select_key);
+                assert(!key_length);
                 return impl.getValue();
             }
 

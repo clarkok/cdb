@@ -253,7 +253,7 @@ Table::buildSchemaForIndex(std::string column_name) {
             builder.addCharField(column.getField()->name, column.getField()->length);
             break;
         default:
-            throw TableFieldNotSupportedException();
+            throw TableTypeNotSupportedException();
     }
 
     auto primary_col = _schema->getPrimaryColumn();
@@ -268,7 +268,7 @@ Table::buildSchemaForIndex(std::string column_name) {
             builder.addCharField(primary_col.getField()->name, primary_col.getField()->length);
             break;
         default:
-            throw TableFieldNotSupportedException();
+            throw TableTypeNotSupportedException();
     }
 
     builder.setPrimary(column_name);
@@ -330,7 +330,9 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
         return;
     }
 
-    std::unique_ptr<Schema> primary_schema(buildSchemaFromColumnNames({primary_col.getField()->name}));
+    std::unique_ptr<Schema> primary_schema(buildSchemaFromColumnNames(
+            std::vector<std::string>{primary_col.getField()->name})
+    );
     IndexVisitor v(this, primary_schema.get(), calculateThreshold());
     condition->accept(&v);
     std::unique_ptr<ModifiableView> indexed_view(v.release());
@@ -396,7 +398,7 @@ Table::buildSchemaFromColumnNames(std::set<std::string> columns_set)
                 builder.addCharField(name, original_column.getField()->length);
                 break;
             default:
-                throw TableFieldNotSupportedException();
+                throw TableTypeNotSupportedException();
         }
     }
     return builder.release();
@@ -425,10 +427,8 @@ Table::mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set)
 BlockIndex
 Table::createIndex(std::string column_name)
 {
-    std::unique_ptr<Schema> index_schema = buildSchemaForIndex(column_name);
+    std::unique_ptr<Schema> index_schema(buildSchemaForIndex(column_name));
     BlockIndex index_root = _accesser->allocateBlock();
-
-    auto index_col = index_schema->getPrimaryColumn();
 
     std::unique_ptr<View> view(buildDataView());
     view.reset(view->select(index_schema.get()));
@@ -448,22 +448,39 @@ Table::createIndex(std::string column_name)
 void
 Table::dropIndex(std::string column_name)
 {
+    auto index_root = findIndex(column_name);
+    std::unique_ptr<BTree> index_tree(
+            buildIndexBTree(
+                    index_root,
+                    buildSchemaForIndex(column_name)
+            )
+    );
+
+    index_tree->clean();
+    index_tree.reset();
+    _accesser->freeBlock(index_root);
 }
 
 IndexView *
 Table::buildDataView()
 {
-    auto primary_col = _schema->getPrimaryColumn();
-    return IndexView::(
+    return new IndexView(
             _schema->copy(),
-            new BTree(
-                    _accesser,
-                    Comparator::getCompareFuncByTypeLT(primary_col.getType()),
-                    Comparator::getCompareFuncByTypeEQ(primary_col.getType()),
-                    _root,
-                    primary_col.getField()->length,
-                    _schema->getRecordSize()
-            )
+            buildDataBTree()
+    );
+}
+
+BTree *
+Table::buildDataBTree()
+{
+    auto primary_col = _schema->getPrimaryColumn();
+    return new BTree(
+            _accesser,
+            Comparator::getCompareFuncByTypeLT(primary_col.getType()),
+            Comparator::getCompareFuncByTypeEQ(primary_col.getType()),
+            _root,
+            primary_col.getField()->length,
+            _schema->getRecordSize()
     );
 }
 
@@ -485,4 +502,105 @@ Table::buildIndexBTree(BlockIndex root, Schema *index_schema)
             index_schema->getRecordSize(),
             0
     );
+}
+
+Schema *
+Table::buildSchemaFromColumnNames(std::vector<std::string> column_names)
+{
+    Schema::Factory builder;
+    for (auto &column : column_names) {
+        auto col = _schema->getColumnByName(column);
+
+        switch (col.getType()) {
+            case Schema::Field::Type::INTEGER:
+                builder.addIntegerField(column);
+                break;
+            case Schema::Field::Type::FLOAT:
+                builder.addFloatField(column);
+                break;
+            case Schema::Field::Type::CHAR:
+                builder.addCharField(column, col.getField()->length);
+                break;
+            default:
+                throw TableTypeNotSupportedException();
+        }
+    }
+    return builder.release();
+}
+
+void
+Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
+{
+    std::vector<Schema::Field::ID> map_table;
+    for (auto &field : *schema) {
+        auto col_in_this = _schema->getColumnByName(field.name);
+        assert(col_in_this.getType() == field.type);
+        map_table.push_back(col_in_this.field_id);
+    }
+
+    auto primary_col = _schema->getPrimaryColumn();
+    auto primary_length = primary_col.getField()->length;
+    bool use_auto_increment = primary_col.getField()->isAutoIncreased() &&
+            !schema->hasColumn(_schema->getPrimaryColumn().getField()->name);
+
+    std::unique_ptr<BTree> data_tree(buildDataBTree());
+    std::vector<std::unique_ptr<BTree> > index_trees;
+
+    for (auto &index : _indices) {
+        index_trees.emplace_back(buildIndexBTree(
+                index.root,
+                buildSchemaForIndex(index.column_name)
+        ));
+    }
+
+    Buffer key_buff(primary_col.getField()->length);
+    for (auto &row : rows) {
+        if (use_auto_increment) {
+            int autoinc_value = primary_col.getField()->autoIncrement();
+            std::copy(
+                    reinterpret_cast<const Byte *>(&autoinc_value),
+                    reinterpret_cast<const Byte *>(&autoinc_value) + sizeof(autoinc_value),
+                    key_buff.begin()
+            );
+        }
+        auto iter = data_tree->insert(data_tree->makeKey(
+                key_buff.content(),
+                key_buff.length())
+        );
+        for (unsigned int i = 0; i < map_table.size(); ++i) {
+            auto remote_col = _schema->getColumnById(map_table[i]);
+            auto original_col = schema->getColumnById(i);
+
+            auto original_slice = original_col.getValue(row);
+            std::copy(
+                    original_slice.cbegin(),
+                    original_slice.cend(),
+                    remote_col.getValue(iter.getValue()).begin()
+            );
+        }
+
+        for (int i = 0; i < index_trees.size(); ++i) {
+            auto &column_name = _indices[i].column_name;
+            auto index_col = _schema->getColumnByName(column_name);
+            auto index_length = index_col.getField()->length;
+            Buffer index_buf(index_length + primary_length);
+            auto index_value = index_col.getValue(iter.getValue());
+            std::copy(
+                    index_value.cbegin(),
+                    index_value.cend(),
+                    index_buf.begin()
+            );
+            std::copy(
+                    key_buff.cbegin(),
+                    key_buff.cend(),
+                    index_buf.begin() + index_length
+            );
+
+            auto &index_tree = index_trees[i];
+            index_tree->insert(index_tree->makeKey(
+                    index_buf.content(),
+                    index_buf.length())
+            );
+        }
+    }
 }

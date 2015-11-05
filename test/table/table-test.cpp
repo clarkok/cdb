@@ -21,7 +21,7 @@ protected:
     TableTest()
             : driver(new BasicDriver(TEST_PATH)),
               allocator(new BitmapAllocator(driver.get(), 0)),
-              accesser(new BasicAccesser(driver.get(), allocator.get())),
+              accesser(new BasicAccesser(driver.get(), allocator.get()))
     {
         Schema *schema = Schema::Factory()
                 .addIntegerField("id")

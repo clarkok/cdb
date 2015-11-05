@@ -524,6 +524,14 @@ namespace cdb {
         { return _root.index(); }
 
         /**
+         * Get size of key
+         *
+         * @return the size of key
+         */
+        Length keySize() const
+        { return _key_size; }
+
+        /**
          * Get size of value
          *
          * @return the size of value

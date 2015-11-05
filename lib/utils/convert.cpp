@@ -13,14 +13,14 @@ Convert::fromString(Schema::Field::Type type, Length length, std::string literal
     switch (type) {
         case Schema::Field::Type::INTEGER:
         {
-            assert(length != sizeof(int));
+            assert(length == sizeof(int));
             Buffer ret(sizeof(int));
             *reinterpret_cast<int*>(ret.content()) = std::stoi(literal);
             return ret;
         }
         case Schema::Field::Type::FLOAT:
         {
-            assert(length != sizeof(float));
+            assert(length == sizeof(float));
             Buffer ret(sizeof(float));
             *reinterpret_cast<float*>(ret.content()) = std::stof(literal);
             return ret;
@@ -42,6 +42,44 @@ Convert::fromString(Schema::Field::Type type, Length length, std::string literal
                     0
             );
             return ret;
+        }
+        case Schema::Field::Type::TEXT:
+        {
+            throw ConvertTypeError(literal);
+        }
+    }
+}
+
+void
+Convert::fromString(Schema::Field::Type type, Length length, std::string literal, Slice buff)
+{
+    assert(buff.length() >= length);
+    switch (type) {
+        case Schema::Field::Type::INTEGER:
+        {
+            assert(length == sizeof(int));
+            *reinterpret_cast<int*>(buff.content()) = std::stoi(literal);
+        }
+        case Schema::Field::Type::FLOAT:
+        {
+            assert(length == sizeof(float));
+            *reinterpret_cast<float*>(buff.content()) = std::stof(literal);
+        }
+        case Schema::Field::Type::CHAR:
+        {
+            if (literal.length() >= length) {
+                throw ConvertTypeError(literal);
+            }
+            std::copy(
+                    literal.cbegin(),
+                    literal.cend(),
+                    buff.begin()
+            );
+            std::fill(
+                    buff.begin() + literal.length(),
+                    buff.end(),
+                    0
+            );
         }
         case Schema::Field::Type::TEXT:
         {

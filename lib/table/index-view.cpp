@@ -6,11 +6,11 @@ using namespace cdb;
 
 View::Iterator
 IndexView::begin()
-{ return Iterator::make(this, new IteratorImpl(_tree->begin(), !_tree->valueSize())); }
+{ return Iterator::make(this, new IteratorImpl(_tree->begin(), !_tree->valueSize() ? _tree->keySize() : 0)); }
 
 View::Iterator
 IndexView::end()
-{ return Iterator::make(this, new IteratorImpl(_tree->end(), !_tree->valueSize())); }
+{ return Iterator::make(this, new IteratorImpl(_tree->end(), !_tree->valueSize() ? _tree->keySize() : 0)); }
 
 View::Iterator
 IndexView::lowerBound(const Byte *key)
@@ -25,7 +25,7 @@ IndexView::lowerBound(const Byte *key)
                                     primary_col_length
                             )
                     ),
-                    !_tree->valueSize()
+                    !_tree->valueSize() ? _tree->keySize() : 0
             )
     );
 }
@@ -43,7 +43,7 @@ IndexView::upperBound(const Byte *key)
                                     primary_col_length
                             )
                     ),
-                    !_tree->valueSize()
+                    !_tree->valueSize() ? _tree->keySize() : 0
             )
     );
 }

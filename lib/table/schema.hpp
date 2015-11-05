@@ -48,11 +48,15 @@ namespace cdb {
             std::size_t length;
             std::string name;
             ID id;
-            int autoinc_value = 0;
+            mutable int autoinc_value = 0;
 
             Field(Type type, std::size_t length, std::string name, ID id, int autoinc_value)
                     : type(type), length(length), name(name), id(id), autoinc_value(autoinc_value)
             { }
+
+            inline bool
+            isAutoIncreased() const
+            { return autoinc_value; }
 
             /**
              * increment the auto increment value and return
@@ -60,7 +64,7 @@ namespace cdb {
              * @return the new auto increment value
              */
             inline int
-            autoIncrement()
+            autoIncrement() const
             { return ++autoinc_value; }
         };
 
@@ -128,6 +132,8 @@ namespace cdb {
          * @return the record size
          */
         std::size_t getRecordSize() const;
+
+        bool hasColumn(std::string name) const;
 
         /**
          * get a Column by name
