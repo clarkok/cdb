@@ -524,6 +524,14 @@ namespace cdb {
         { return _root.index(); }
 
         /**
+         * Get size of value
+         *
+         * @return the size of value
+         */
+        Length valueSize() const
+        { return _value_size; }
+
+        /**
          * Find the lower bound of key
          *
          * An Iterator pointing to the first record whose key is not less than `key' is 

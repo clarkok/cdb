@@ -64,23 +64,15 @@ public:
             return;
         }
 
-        auto type = _owner->_schema->getColumnByName(expr->column_name).getType();
-
         Schema *index_schema = _owner->buildSchemaForIndex(expr->column_name);
-        auto primary_type = index_schema->getPrimaryColumn().getType();
-        auto primary_length = index_schema->getPrimaryColumn().getField()->length;
+        auto index_type = index_schema->getPrimaryColumn().getType();
+        auto index_length = index_schema->getPrimaryColumn().getField()->length;
 
-        BTree *tree = new BTree(
-                _owner->_accesser,
-                Comparator::getCompareFuncByTypeLT(type),
-                Comparator::getCompareFuncByTypeEQ(type),
-                index_root,
-                primary_length,
-                index_schema->getRecordSize()
-        );
-
-        std::unique_ptr<View> index_view(new IndexView(index_schema, tree));
-        auto key = Convert::fromString(primary_type, primary_length, expr->literal);
+        std::unique_ptr<View> index_view(new IndexView(
+                index_schema,
+                _owner->buildIndexBTree(index_root, index_schema)
+        ));
+        auto key = Convert::fromString(index_type, index_length, expr->literal);
 
         switch (expr->op) {
             case CompareExpr::Operator::EQ:
@@ -279,6 +271,8 @@ Table::buildSchemaForIndex(std::string column_name) {
             throw TableFieldNotSupportedException();
     }
 
+    builder.setPrimary(column_name);
+
     return builder.release();
 }
 
@@ -301,6 +295,7 @@ Table::getSchemaForRootTable()
     factory.addIntegerField("id");
     factory.addCharField("name", MAX_TABLE_NAME_LENGTH);
     factory.addIntegerField("data");
+    factory.addIntegerField("count");
 
     factory.addTextField("create_sql");
     return factory.release();
@@ -327,19 +322,10 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
     auto primary_col = _schema->getPrimaryColumn();
 
     if (!condition) {
-        std::unique_ptr<View> view(IndexView(
-                _schema->copy(),
-                new BTree(
-                        _accesser,
-                        Comparator::getCompareFuncByTypeLT(primary_col.getType()),
-                        Comparator::getCompareFuncByTypeEQ(primary_col.getType()),
-                        _root,
-                        primary_col.getField()->length,
-                        _schema->getRecordSize()
-                )
-        ).select(schema));
+        std::unique_ptr<View> view(buildDataView());
+        view.reset(view->select(schema));
         for (auto iter = view->begin(); iter != view->end(); iter.next()) {
-            accesser(iter.slice());
+            accesser(iter.constSlice());
         }
         return;
     }
@@ -349,22 +335,12 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
     condition->accept(&v);
     std::unique_ptr<ModifiableView> indexed_view(v.release());
 
-    IndexView data_view(
-            _schema->copy(),
-            new BTree(
-                    _accesser,
-                    Comparator::getCompareFuncByTypeLT(primary_col.getType()),
-                    Comparator::getCompareFuncByTypeEQ(primary_col.getType()),
-                    _root,
-                    primary_col.getField()->length,
-                    _schema->getRecordSize()
-            )
-    );
+    std::unique_ptr<IndexView> data_view(buildDataView());
 
     std::unique_ptr<View> view;
     if (indexed_view) {
         view.reset(
-                data_view.selectIndexed(
+                data_view->selectIndexed(
                         schema,
                         indexed_view->begin(),
                         indexed_view->end(),
@@ -374,14 +350,14 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
     }
     else {
         view.reset(
-                data_view.select(
+                data_view->select(
                         schema,
                         buildFilter(condition)
                 )
         );
     }
     for (auto iter = view->begin(); iter != view->end(); iter.next()) {
-        accesser(iter.slice());
+        accesser(iter.constSlice());
     }
 }
 
@@ -444,4 +420,69 @@ Table::mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set)
         set.insert(field.name);
     }
     return set;
+}
+
+BlockIndex
+Table::createIndex(std::string column_name)
+{
+    std::unique_ptr<Schema> index_schema = buildSchemaForIndex(column_name);
+    BlockIndex index_root = _accesser->allocateBlock();
+
+    auto index_col = index_schema->getPrimaryColumn();
+
+    std::unique_ptr<View> view(buildDataView());
+    view.reset(view->select(index_schema.get()));
+
+    std::unique_ptr<BTree> index_tree(buildIndexBTree(index_root, index_schema->copy()));
+    index_tree->reset();
+
+    for (auto iter = view->begin(); iter != view->end(); iter.next()) {
+        auto slice = iter.constSlice();
+        index_tree->insert(index_tree->makeKey(slice.content(), slice.length()));
+    }
+
+    _indices.emplace_back(column_name, index_root);
+    return index_root;
+}
+
+void
+Table::dropIndex(std::string column_name)
+{
+}
+
+IndexView *
+Table::buildDataView()
+{
+    auto primary_col = _schema->getPrimaryColumn();
+    return IndexView::(
+            _schema->copy(),
+            new BTree(
+                    _accesser,
+                    Comparator::getCompareFuncByTypeLT(primary_col.getType()),
+                    Comparator::getCompareFuncByTypeEQ(primary_col.getType()),
+                    _root,
+                    primary_col.getField()->length,
+                    _schema->getRecordSize()
+            )
+    );
+}
+
+BTree *
+Table::buildIndexBTree(BlockIndex root, Schema *index_schema)
+{
+    auto index_col = index_schema->getPrimaryColumn();
+    auto index_type = index_col.getType();
+    auto index_length = index_col.getField()->length;
+
+    auto primary_col = _schema->getPrimaryColumn();
+    auto primary_type = primary_col.getType();
+
+    return new BTree(
+            _accesser,
+            Comparator::getCombineCmpFuncLT(index_type, index_length, primary_type),
+            Comparator::getCombineCmpFuncEQ(index_type, index_length, primary_type),
+            root,
+            index_schema->getRecordSize(),
+            0
+    );
 }

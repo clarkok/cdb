@@ -20,6 +20,7 @@ namespace cdb {
 
             virtual void next() = 0;
             virtual void prev() = 0;
+            virtual ConstSlice constSlice() = 0;
             virtual Slice slice() = 0;
             virtual bool equal(const IteratorImpl &b) const = 0;
         };
@@ -55,6 +56,10 @@ namespace cdb {
             inline Slice
             slice() const
             { return _pimpl->slice(); }
+
+            inline ConstSlice
+            constSlice() const
+            { return _pimpl->constSlice(); }
 
             inline bool
             operator == (const Iterator &b) const

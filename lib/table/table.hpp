@@ -11,6 +11,7 @@
 #include "lib/condition/condition.hpp"
 #include "lib/driver/driver-accesser.hpp"
 #include "view.hpp"
+#include "index-view.hpp"
 
 namespace cdb {
     struct TableFieldNotSupportedException : public std::exception
@@ -18,6 +19,32 @@ namespace cdb {
         virtual const char *
         what() const _GLIBCXX_NOEXCEPT
         { return "Type not support currently"; }
+    };
+
+    struct TableIndexExistsException : public std::exception
+    {
+        std::string field;
+
+        TableIndexExistsException(std::string field)
+                : field(field)
+        { }
+
+        virtual const char *
+        what() const _GLIBCXX_NOEXCEPT
+        { return ("Index exists on field `" + field + '`').c_str(); }
+    };
+
+    struct TableIndexNotFoundException : public std::exception
+    {
+        std::string field;
+
+        TableIndexNotFoundException(std::string field)
+                : field(field)
+        { }
+
+        virtual const char *
+        what() const _GLIBCXX_NOEXCEPT
+        { return ("Index not found on field `" + field + '`').c_str(); }
     };
 
     class Table
@@ -51,6 +78,9 @@ namespace cdb {
         inline Length calculateThreshold() const;
         View::Filter buildFilter(ConditionExpr *condition);
 
+        IndexView *buildDataView();
+        BTree *buildIndexBTree(BlockIndex root, Schema *index_schema);
+
     public:
         static const int MAX_TABLE_NAME_LENGTH = 32;
 
@@ -65,6 +95,10 @@ namespace cdb {
          * @param accesser call on each row
          */
         void select(Schema *schema, ConditionExpr *condition, Accesser accesser);
+
+        BlockIndex createIndex(std::string column_name);
+
+        void dropIndex(std::string column_name);
 
         class Factory
         {

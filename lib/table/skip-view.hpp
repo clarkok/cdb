@@ -29,6 +29,10 @@ namespace cdb {
             slice()
             { return *impl; }
 
+            virtual ConstSlice
+            constSlice()
+            { return *impl; }
+
             virtual bool
             equal(const View::IteratorImpl &b) const
             { return dynamic_cast<const SkipView::IteratorImpl &>(b).impl == impl; }

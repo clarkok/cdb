@@ -19,20 +19,21 @@ namespace cdb {
         { return "Unknown type when get Comparator"; }
     };
 
-    class Comparator
-    {
-    public:
+    namespace Comparator {
         typedef std::function<bool(const Byte *, const Byte *)> CmpFunc;
 
-        static CmpFunc getIntegerCompareFuncLT();
-        static CmpFunc getFloatCompareFuncLT();
-        static CmpFunc getCharCompareFuncLT();
-        static CmpFunc getCompareFuncByTypeLT(Schema::Field::Type type);
+        CmpFunc getIntegerCompareFuncLT();
+        CmpFunc getFloatCompareFuncLT();
+        CmpFunc getCharCompareFuncLT();
+        CmpFunc getCompareFuncByTypeLT(Schema::Field::Type type);
 
-        static CmpFunc getIntegerCompareFuncEQ();
-        static CmpFunc getFloatCompareFuncEQ();
-        static CmpFunc getCharCompareFuncEQ();
-        static CmpFunc getCompareFuncByTypeEQ(Schema::Field::Type type);
+        CmpFunc getIntegerCompareFuncEQ();
+        CmpFunc getFloatCompareFuncEQ();
+        CmpFunc getCharCompareFuncEQ();
+        CmpFunc getCompareFuncByTypeEQ(Schema::Field::Type type);
+
+        CmpFunc getCombineCmpFuncLT(Schema::Field::Type typea, Length a_length, Schema::Field::Type typeb);
+        CmpFunc getCombineCmpFuncEQ(Schema::Field::Type typea, Length a_length, Schema::Field::Type typeb);
     };
 }
 
