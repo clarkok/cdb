@@ -4,6 +4,8 @@
 #include <cstring>
 #include "convert.hpp"
 
+#include <iostream>
+
 using namespace cdb;
 using namespace cdb::Convert;
 
@@ -59,11 +61,13 @@ Convert::fromString(Schema::Field::Type type, Length length, std::string literal
         {
             assert(length == sizeof(int));
             *reinterpret_cast<int*>(buff.content()) = std::stoi(literal);
+            break;
         }
         case Schema::Field::Type::FLOAT:
         {
             assert(length == sizeof(float));
             *reinterpret_cast<float*>(buff.content()) = std::stof(literal);
+            break;
         }
         case Schema::Field::Type::CHAR:
         {
@@ -80,6 +84,7 @@ Convert::fromString(Schema::Field::Type type, Length length, std::string literal
                     buff.end(),
                     0
             );
+            break;
         }
         case Schema::Field::Type::TEXT:
         {

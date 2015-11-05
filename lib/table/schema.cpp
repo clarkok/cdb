@@ -52,6 +52,7 @@ Schema::getColumnById(Field::ID id) const
     auto iter = _fields.begin();
     while (id--) {
         offset += getFieldSize(&*iter);
+        iter++;
     }
     return Column{this, iter->id, offset};
 }

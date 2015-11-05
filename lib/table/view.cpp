@@ -42,7 +42,7 @@ View::select(Schema *schema, Filter filter)
         table->insert(row);
     }
 
-    return new SkipView(schema, table);
+    return new SkipView(schema->copy(), table);
 }
 
 ModifiableView *
@@ -84,7 +84,7 @@ View::selectRange(Schema *schema, Iterator b, Iterator e, Filter filter)
         table->insert(row);
     }
 
-    return new SkipView(schema, table);
+    return new SkipView(schema->copy(), table);
 }
 
 ModifiableView *
@@ -140,5 +140,5 @@ View::selectIndexed(Schema *schema, Iterator b, Iterator e, cdb::View::Filter fi
         table->insert(row);
     }
 
-    return new SkipView(schema, table);
+    return new SkipView(schema->copy(), table);
 }

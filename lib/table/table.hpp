@@ -93,6 +93,10 @@ namespace cdb {
 
         Schema *buildSchemaFromColumnNames(std::vector<std::string> column_names);
 
+        inline Length
+        getCount() const
+        { return _count; }
+
         /**
          * Select on this table
          *
@@ -126,11 +130,21 @@ namespace cdb {
          */
         void insert(Schema *schema, const std::vector<ConstSlice> &rows);
 
+        class RecordBuilder;
+        RecordBuilder *getRecordBuilder(std::vector<std::string> fields);
+
         class Factory
         {
             std::unique_ptr<Table> _table;
         public:
-            Factory() = default;
+            Factory(
+                    DriverAccesser *accesser,
+                    Schema *schema,
+                    BlockIndex root
+            )
+                    : _table(new Table(accesser, schema, root))
+            { }
+
             ~Factory() = default;
 
             Table *release()
@@ -156,6 +170,15 @@ namespace cdb {
 
             friend class Table;
         public:
+            inline RecordBuilder &
+            reset()
+            {
+                _buffs.clear();
+                _column_index = 0;
+
+                return *this;
+            }
+
             inline std::vector<ConstSlice>
             getRows() const
             {
@@ -166,18 +189,24 @@ namespace cdb {
                 return ret;
             }
 
-            inline void
+            inline Schema *
+            getSchema() const
+            { return _schema.get(); }
+
+            inline RecordBuilder &
             addRow()
             {
                 _buffs.emplace_back(_schema->getRecordSize());
                 _column_index = 0;
+
+                return *this;
             }
 
             inline Schema::Field::Type
             currentType() const
             { return _schema->getColumnById(_column_index).getType(); }
 
-            inline void
+            inline RecordBuilder &
             addInteger(std::string literal)
             {
                 auto column = _schema->getColumnById(_column_index);
@@ -191,9 +220,10 @@ namespace cdb {
                 );
 
                 ++_column_index;
+                return *this;
             }
 
-            inline void
+            inline RecordBuilder &
             addFloat(std::string literal)
             {
                 auto column = _schema->getColumnById(_column_index);
@@ -207,9 +237,10 @@ namespace cdb {
                 );
 
                 ++_column_index;
+                return *this;
             }
 
-            inline void
+            inline RecordBuilder &
             addChar(std::string literal)
             {
                 auto column = _schema->getColumnById(_column_index);
@@ -223,21 +254,19 @@ namespace cdb {
                 );
 
                 ++_column_index;
+                return *this;
             }
 
-            inline void
+            inline RecordBuilder &
             addValue(std::string literal)
             {
                 switch (currentType()) {
                     case Schema::Field::Type::INTEGER:
-                        addInteger(literal);
-                        break;
+                        return addInteger(literal);
                     case Schema::Field::Type::FLOAT:
-                        addFloat(literal);
-                        break;
+                        return addFloat(literal);
                     case Schema::Field::Type::CHAR:
-                        addChar(literal);
-                        break;
+                        return addChar(literal);
                     default:
                         throw TableTypeNotSupportedException();
                 }

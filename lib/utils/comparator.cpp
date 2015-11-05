@@ -108,3 +108,38 @@ Comparator::getCompareFuncByTypeEQ(Schema::Field::Type type)
             throw ComparatorUnknownTypeException();
     }
 }
+
+Comparator::CmpFunc
+Comparator::getCombineCmpFuncLT(
+        Schema::Field::Type typea,
+        Length a_length,
+        Schema::Field::Type typeb)
+{
+    return [=](const Byte *a, const Byte *b)
+    {
+        auto a_lt = getCompareFuncByTypeLT(typea);
+
+        if (a_lt(a, b)) {
+            return true;
+        }
+        if (a_lt(b, a)) {
+            return false;
+        }
+        auto b_lt = getCompareFuncByTypeLT(typeb);
+        return b_lt(a + a_length, b + a_length);
+    };
+}
+
+Comparator::CmpFunc
+Comparator::getCombineCmpFuncEQ(
+        Schema::Field::Type typea,
+        Length a_length,
+        Schema::Field::Type typeb)
+{
+    return [=](const Byte *a, const Byte *b)
+    {
+        auto a_eq = getCompareFuncByTypeEQ(typea);
+        auto b_eq = getCompareFuncByTypeEQ(typeb);
+        return a_eq(a, b) && b_eq(a + a_length, b + a_length);
+    };
+}

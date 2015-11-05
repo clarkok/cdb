@@ -302,7 +302,7 @@ Table::getSchemaForRootTable()
 }
 
 Table::Table(DriverAccesser *accesser, Schema *schema, BlockIndex root)
-        : _accesser(accesser), _schema(schema), _root(root)
+        : _accesser(accesser), _schema(schema), _root(root), _count(0)
 { }
 
 void
@@ -312,6 +312,7 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
 
     if (!schema) {
         internal_schema.reset(_schema->copy());
+        schema = internal_schema.get();
     }
     else {
         std::set<std::string> columns_set = getColumnNames(condition);
@@ -579,7 +580,7 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
             );
         }
 
-        for (int i = 0; i < index_trees.size(); ++i) {
+        for (unsigned int i = 0; i < index_trees.size(); ++i) {
             auto &column_name = _indices[i].column_name;
             auto index_col = _schema->getColumnByName(column_name);
             auto index_length = index_col.getField()->length;
@@ -603,4 +604,10 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
             );
         }
     }
+
+    _count += rows.size();
 }
+
+Table::RecordBuilder *
+Table::getRecordBuilder(std::vector<std::string> fields)
+{ return new RecordBuilder(buildSchemaFromColumnNames(fields)); }

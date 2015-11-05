@@ -32,8 +32,16 @@ namespace cdb {
         CmpFunc getCharCompareFuncEQ();
         CmpFunc getCompareFuncByTypeEQ(Schema::Field::Type type);
 
-        CmpFunc getCombineCmpFuncLT(Schema::Field::Type typea, Length a_length, Schema::Field::Type typeb);
-        CmpFunc getCombineCmpFuncEQ(Schema::Field::Type typea, Length a_length, Schema::Field::Type typeb);
+        CmpFunc getCombineCmpFuncLT(
+                Schema::Field::Type typea,
+                Length a_length,
+                Schema::Field::Type typeb
+        );
+        CmpFunc getCombineCmpFuncEQ(
+                Schema::Field::Type typea,
+                Length a_length,
+                Schema::Field::Type typeb
+        );
     };
 }
 
