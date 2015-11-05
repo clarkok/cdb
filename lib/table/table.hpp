@@ -10,6 +10,7 @@
 #include "schema.hpp"
 #include "lib/condition/condition.hpp"
 #include "lib/driver/driver-accesser.hpp"
+#include "view.hpp"
 
 namespace cdb {
     struct TableFieldNotSupportedException : public std::exception
@@ -31,16 +32,24 @@ namespace cdb {
             { }
         };
 
+        class IndexVisitor;
+        class FilterVisitor;
+
         DriverAccesser *_accesser;
         std::unique_ptr<Schema> _schema;
         BlockIndex _root;
         std::vector<Index> _indices;
+        Length _count;
 
         Table(DriverAccesser *accesser, Schema *schema, BlockIndex root);
 
         static std::set<std::string> getColumnNames(ConditionExpr *expr);
         static std::set<std::string> mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set);
         Schema *buildSchemaFromColumnNames(std::set<std::string>(columns_set));
+        BlockIndex findIndex(std::string column_name);
+        Schema *buildSchemaForIndex(std::string column_name);
+        inline Length calculateThreshold() const;
+        View::Filter buildFilter(ConditionExpr *condition);
 
     public:
         static const int MAX_TABLE_NAME_LENGTH = 32;

@@ -4,6 +4,10 @@
 
 using namespace cdb;
 
+Length
+SkipView::count() const
+{ return _table->size(); }
+
 View::Iterator
 SkipView::begin()
 { return Iterator::make(this, new SkipView::IteratorImpl(_table->begin())); }

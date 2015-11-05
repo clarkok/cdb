@@ -154,6 +154,8 @@ SkipTable::upperBound(Key key)
 SkipTable::Iterator
 SkipTable::insert(ConstSlice value)
 {
+    ++_size;
+
     // Empty table
     if (!_root) {
         _root = newLeaf(nullptr, nullptr, nullptr, value);
@@ -371,6 +373,8 @@ SkipTable::erase(Iterator pos)
 {
     assert(pos._owner == this);
     assert(pos._ptr);
+
+    --_size;
 
     Iterator ret(this, static_cast<Leaf*>(pos._ptr->next));
 

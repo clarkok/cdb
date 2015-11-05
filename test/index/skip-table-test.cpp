@@ -53,16 +53,21 @@ protected:
 TEST_F(SkipTableTest, Insert)
 {
     for (int i = 0; i < SMALL_NUMBER; ++i) {
+        EXPECT_EQ(i, uut->size());
         auto iter = uut->insert(toConstSlice(i));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter->content()));
+        EXPECT_EQ(i + 1, uut->size());
     }
 }
 
 TEST_F(SkipTableTest, InsertReverse)
 {
+    int size = 0;
     for (int i = SMALL_NUMBER; i; --i) {
+        EXPECT_EQ(size, uut->size());
         auto iter = uut->insert(toConstSlice(i));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter->content()));
+        EXPECT_EQ(++size, uut->size());
     }
 }
 
@@ -134,8 +139,10 @@ TEST_F(SkipTableTest, RandomOrder)
     }
     std::shuffle(v.begin(), v.end(), std::default_random_engine());
 
+    int size = 0;
     for (auto &n : v) {
         uut->insert(toConstSlice(n));
+        EXPECT_EQ(++size, uut->size());
     }
 
     auto iter = uut->begin();
@@ -161,9 +168,11 @@ TEST_F(SkipTableTest, RandomOrder)
 
 TEST_F(SkipTableTest, InsertSameValue)
 {
+    int size = 0;
     for (int i = 0; i < SMALL_NUMBER; ++i) {
         for (int j = 0; j < i; ++j) {
             uut->insert(toConstSlice(i));
+            EXPECT_EQ(++size, uut->size());
         }
     }
 
@@ -190,8 +199,10 @@ TEST_F(SkipTableTest, LargeNumber)
     }
     std::shuffle(v.begin(), v.end(), std::default_random_engine());
 
+    int size = 0;
     for (auto &n : v) {
         uut->insert(toConstSlice(n));
+        EXPECT_EQ(++size, uut->size());
     }
 
     auto iter = uut->begin();

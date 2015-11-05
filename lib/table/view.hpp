@@ -38,7 +38,7 @@ namespace cdb {
             Iterator(Iterator &&) = default;
 
             View *_owner;
-            std::unique_ptr<IteratorImpl> _pimpl;
+            mutable std::unique_ptr<IteratorImpl> _pimpl;
 
             inline Schema *
             getSchema() const
@@ -53,7 +53,7 @@ namespace cdb {
             { _pimpl->prev(); }
 
             inline Slice
-            slice()
+            slice() const
             { return _pimpl->slice(); }
 
             inline bool
@@ -94,22 +94,50 @@ namespace cdb {
         { return _schema.get(); }
 
         /**
-         * Select some columns in this view
+         * Select some columns in this view with filter
          *
          * the result of copying will be stored in memory only, and this View remains unchanged
          *
          * @param schema the schema to select
+         * @param filter the filter return true if want this record selected
          * @return a new View, must in memory
+         * @see selectRange
+         * @see selectIndexed
          */
         virtual ModifiableView *select(Schema *schema, Filter filter = getDefaultFilter());
 
         /**
-         * Select some columns in this view
+         * Select rows in this view
+         *
+         * the result of copying will be stored in memory only, and this View remains unchanged
+         *
+         * @param schema the schema to copy
+         * @param b beginning Iterator of this View
+         * @param e ending Iterator of this View
+         * @param filter
+         * @return a new View, must in memory
+         * @see select
+         * @see selectIndexed
+         */
+        virtual ModifiableView *selectRange(
+                Schema *schema,
+                Iterator b,
+                Iterator e,
+                Filter filter = getDefaultFilter()
+        );
+
+        /**
+         * Select some columns in this view with filter, using index
          *
          * the result of copying will be stored in memory only, and this View remains unchanged
          *
          * @param schema the schema to select
+         * @param b beginning Iterator of index
+         * @param e ending Iterator of index
+         * @param filter
          * @return a new View, must in memory
+         * @see select
+         * @see selectRnage
          */
         virtual ModifiableView *selectIndexed(
                 Schema *schema,
@@ -175,6 +203,13 @@ namespace cdb {
         { };
 
         virtual ~ModifiableView() = default;
+
+        /**
+         * Get count of rows in this view
+         *
+         * @return count
+         */
+        virtual Length count() const = 0;
 
         /**
          * intersect this view by primary key

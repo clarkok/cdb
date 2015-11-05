@@ -101,6 +101,7 @@ namespace cdb {
         Comparator _less;
 
         Node *_root = nullptr;
+        Length _size = 0;
 
         /**
          * Find lower bound of value, until it meets a leaf, or nullptr
@@ -168,6 +169,10 @@ namespace cdb {
     public:
         SkipTable(int key_offset, Comparator less);
         ~SkipTable();
+
+        inline Length
+        size() const
+        { return _size; }
 
         /**
          * Find the lower bound of the given value

@@ -20,7 +20,7 @@ Schema::getRecordSize() const
 }
 
 Schema::Column
-Schema::getColumnByName(std::string name)
+Schema::getColumnByName(std::string name) const
 {
     std::size_t offset = 0;
     for (auto &field : _fields) {
@@ -35,7 +35,7 @@ Schema::getColumnByName(std::string name)
 }
 
 Schema::Column
-Schema::getColumnById(Field::ID id)
+Schema::getColumnById(Field::ID id) const
 {
     std::size_t offset = 0;
     auto iter = _fields.begin();
@@ -46,7 +46,7 @@ Schema::getColumnById(Field::ID id)
 }
 
 Schema::Column
-Schema::getPrimaryColumn()
+Schema::getPrimaryColumn() const
 { return getColumnById(_primary_field); }
 
 Schema *

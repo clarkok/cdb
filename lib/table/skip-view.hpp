@@ -43,6 +43,7 @@ namespace cdb {
 
         virtual ~SkipView() = default;
 
+        virtual Length count() const;
         virtual ModifiableView *peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound);
         virtual ModifiableView *intersect(Iterator b, Iterator e);
         virtual ModifiableView *join(Iterator b, Iterator e);

@@ -69,11 +69,11 @@ namespace cdb {
          */
         struct Column
         {
-            Schema *owner;
+            const Schema *owner;
             Field::ID field_id;
             std::size_t offset;
 
-            inline Field *
+            inline const Field *
             getField() const
             { return &owner->_fields[field_id]; }
 
@@ -83,6 +83,15 @@ namespace cdb {
 
             inline Slice
             getValue(Slice row)
+            {
+                return row.subSlice(
+                        static_cast<Length>(offset),
+                        static_cast<Length>(getFieldSize(getField()))
+                );
+            }
+
+            inline ConstSlice
+            getValue(ConstSlice row) const
             {
                 return row.subSlice(
                         static_cast<Length>(offset),
@@ -126,7 +135,7 @@ namespace cdb {
          * @param name of the column to search
          * @return the column of the given name
          */
-        Column getColumnByName(std::string name);
+        Column getColumnByName(std::string name) const;
 
         /**
          * get a Column by id
@@ -134,14 +143,14 @@ namespace cdb {
          * @param id of the column to fetch
          * @return the column of the given id
          */
-        Column getColumnById(Field::ID id);
+        Column getColumnById(Field::ID id) const;
 
         /**
          * get the primary column
          *
          * @return the primary key's column
          */
-        Column getPrimaryColumn();
+        Column getPrimaryColumn() const;
 
         /**
          * get the copy of this schema
