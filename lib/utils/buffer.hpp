@@ -12,8 +12,8 @@ namespace cdb {
     struct BufferImpl;  /** the defination of this struct is hidden */
 
     /**
-     * this class hold strong reference of a piece of memory
-     */
+     *      * this class hold strong reference of a piece of memory
+     *           */
     class Buffer
     {
         std::shared_ptr<BufferImpl> pimpl_; /** The impl of this buffer         */
@@ -24,10 +24,11 @@ namespace cdb {
 
         Buffer(std::shared_ptr<BufferImpl> &&pimpl);
 
-    public:
+        public:
         Buffer(Length length);
         Buffer(const Buffer &buffer);
         Buffer(const Byte* cbegin, const Byte* cend);
+        Buffer(Buffer &&buffer);
 
         inline Length
         length() const
@@ -47,11 +48,11 @@ namespace cdb {
 
         inline const Byte*
         cbegin() const
-        { return content(); }
+        { return content();}
 
         inline const Byte*
         cend() const
-        { return content() + length(); }
+        { return content() + length();}
 
         inline Byte*
         begin()

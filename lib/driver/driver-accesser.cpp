@@ -7,22 +7,14 @@ using cdb::BlockIndex;
 
 Block::Block(const Block &block)
     : _owner(block._owner), _index(block._index), _slice(_owner->access(_index))
-{
-    auto count = ++_get_debug_counter()[_index];
-    // std::cerr << "copy ctor " << _index << " | " << count << std::endl;
-}
+{ }
 
 Block &
 Block::operator = (const Block &block)
 {
-    // std::cerr << "copy assign " << block._index << " -> " << _index << std::endl;
-
     if (this == &block) {
         return *this;
     }
-
-    // std::cerr << block._index << " | " << ++_get_debug_counter()[block._index] << std::endl;
-    // std::cerr << _index << " | " << --_get_debug_counter()[_index] << std::endl;
 
     if (_index != NON_BLOCK) {
         _owner->release(_index);
@@ -38,14 +30,9 @@ Block::operator = (const Block &block)
 Block &
 Block::operator = (Block &&block)
 {
-    // std::cerr << "move assign " << block._index << " -> " << _index << std::endl;
-
     if (this == &block) {
         return *this;
     }
-
-    // std::cerr << block._index << " | " << _get_debug_counter()[block._index] << std::endl;
-    // std::cerr << _index << " | " << --_get_debug_counter()[_index] << std::endl;
 
     if (_index != NON_BLOCK) {
         _owner->release(_index);
@@ -60,10 +47,8 @@ Block::operator = (Block &&block)
 
 Block::~Block()
 {
-    // std::cerr << "dtor " << _index << std::endl;
     if (_index != NON_BLOCK) {
         _owner->release(_index);
-        // std::cerr << _index << " | " << --_get_debug_counter()[_index] << std::endl;
     }
 }
 
@@ -80,9 +65,3 @@ void
 DriverAccesser::freeBlock(BlockIndex index)
 { freeBlocks(index, 1); }
 
-std::map<BlockIndex, int> &
-cdb::_get_debug_counter()
-{
-    static std::map<BlockIndex, int> counter;
-    return counter;
-}

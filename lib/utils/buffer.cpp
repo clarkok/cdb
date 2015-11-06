@@ -13,11 +13,11 @@ namespace cdb {
         Byte* content;
 
         BufferImpl(Length length)
-            : length(length), content(new Byte[length])
+        : length(length), content(new Byte[length])
         { assert(content); }
 
         BufferImpl(BufferImpl &&impl)
-            : length(impl.length), content(impl.content)
+        : length(impl.length), content(impl.content)
         { impl.content = nullptr; }
 
         BufferImpl
@@ -46,13 +46,17 @@ Buffer::Buffer(const Byte* cbegin, const Byte* cend)
     : Buffer(cend - cbegin)
 { std::copy(cbegin, cend, begin()); }
 
+Buffer::Buffer(Buffer &&buffer)
+    : Buffer(std::move(buffer.pimpl_))
+{ }
+
 Buffer::Buffer(std::shared_ptr<BufferImpl> &&pimpl)
     : pimpl_(std::move(pimpl)),
       content_(pimpl_->content),
       length_(pimpl_->length)
 { }
 
-void
+    void
 Buffer::ensureOwnership()
 {
     if (!pimpl_.unique()) {

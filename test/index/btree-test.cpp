@@ -160,6 +160,7 @@ TEST_F(BTreeTest, MaximumEntry)
 TEST_F(BTreeTest, Insert)
 {
     for (int i = 0; i < TEST_NUMBER; ++i) {
+        std::cerr << i << std::endl;
         auto iter = uut->insert(uut->makeKey(&i));
         *reinterpret_cast<int*>(iter.getValue().content()) = i;
     }
