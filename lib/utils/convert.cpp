@@ -198,3 +198,65 @@ Convert::prev(Schema::Field::Type type, Length length, ConstSlice original)
         }
     }
 }
+
+void
+Convert::minLimit(Schema::Field::Type type, Length length, Slice buff)
+{
+    switch (type) {
+        case Schema::Field::Type::INTEGER:
+            assert(length == sizeof(int));
+            *reinterpret_cast<int *>(buff.content()) = std::numeric_limits<int>::min();
+            break;
+        case Schema::Field::Type::FLOAT:
+            assert(length == sizeof(float));
+            *reinterpret_cast<float *>(buff.content()) = std::numeric_limits<float>::min();
+            break;
+        case Schema::Field::Type::CHAR:
+            *reinterpret_cast<char *>(buff.content()) = '\0';   // only first char in enough
+            break;
+        default:
+            throw ConvertTypeError("TEXT");
+    }
+}
+
+void
+Convert::maxLimit(Schema::Field::Type type, Length length, Slice buff)
+{
+    switch (type) {
+        case Schema::Field::Type::INTEGER:
+            assert(length == sizeof(int));
+            *reinterpret_cast<int *>(buff.content()) = std::numeric_limits<int>::max();
+            break;
+        case Schema::Field::Type::FLOAT:
+            assert(length == sizeof(float));
+            *reinterpret_cast<float *>(buff.content()) = std::numeric_limits<float>::max();
+            break;
+        case Schema::Field::Type::CHAR:
+            assert(length == buff.length());
+            std::fill(
+                    buff.begin(),
+                    buff.end(),
+                    std::numeric_limits<char>::max()
+            );
+            *reinterpret_cast<char *>(buff.content() + length - 1) = '\0';
+            break;
+        default:
+            throw ConvertTypeError("TEXT");
+    }
+}
+
+Buffer
+Convert::minLimit(Schema::Field::Type type, Length length)
+{
+    Buffer ret(length);
+    minLimit(type, length, ret);
+    return ret;
+}
+
+Buffer
+Convert::maxLimit(Schema::Field::Type type, Length length)
+{
+    Buffer ret(length);
+    maxLimit(type, length, ret);
+    return ret;
+}

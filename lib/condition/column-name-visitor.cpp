@@ -21,6 +21,14 @@ void
 ColumnNameVisitor::visit(CompareExpr *expr)
 { _column_names.insert(expr->column_name); }
 
+void
+ColumnNameVisitor::visit(RangeExpr *expr)
+{ _column_names.insert(expr->column_name); }
+
+void
+ColumnNameVisitor::visit(FalseExpr *)
+{ }
+
 std::set<std::string>
 ColumnNameVisitor::get() const
 { return _column_names; }

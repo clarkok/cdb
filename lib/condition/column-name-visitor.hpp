@@ -16,6 +16,8 @@ namespace cdb {
         virtual void visit(AndExpr *expr);
         virtual void visit(OrExpr *expr);
         virtual void visit(CompareExpr *expr);
+        virtual void visit(RangeExpr *expr);
+        virtual void visit(FalseExpr *expr);
 
         std::set<std::string> get() const;
     };

@@ -27,6 +27,11 @@ namespace cdb {
 
         Buffer next(Schema::Field::Type type, Length length, ConstSlice original);
         Buffer prev(Schema::Field::Type type, Length length, ConstSlice original);
+
+        Buffer minLimit(Schema::Field::Type type, Length length);
+        Buffer maxLimit(Schema::Field::Type type, Length length);
+        void minLimit(Schema::Field::Type type, Length length, Slice buff);
+        void maxLimit(Schema::Field::Type type, Length length, Slice buff);
     }
 }
 

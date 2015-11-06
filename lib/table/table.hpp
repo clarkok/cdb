@@ -60,6 +60,7 @@ namespace cdb {
             { }
         };
 
+        class OptimizeVisitor;
         class IndexVisitor;
         class FilterVisitor;
 
@@ -76,8 +77,9 @@ namespace cdb {
         Schema *buildSchemaFromColumnNames(std::set<std::string> columns_set);
         BlockIndex findIndex(std::string column_name);
         Schema *buildSchemaForIndex(std::string column_name);
-        inline Length calculateThreshold() const;
         View::Filter buildFilter(ConditionExpr *condition);
+        inline Length calculateThreshold() const;
+        inline Length calculateRecordPerBlock() const;
 
         IndexView *buildDataView();
         BTree *buildDataBTree();
@@ -96,6 +98,8 @@ namespace cdb {
         inline Length
         getCount() const
         { return _count; }
+
+        ConditionExpr *optimizeCondition(ConditionExpr *);
 
         /**
          * Select on this table
@@ -224,6 +228,24 @@ namespace cdb {
             }
 
             inline RecordBuilder &
+            addInteger(int value)
+            {
+                auto column = _schema->getColumnById(_column_index);
+                auto type = column.getType();
+                assert(type == Schema::Field::Type::INTEGER || type == Schema::Field::Type::FLOAT);
+
+                if (type == Schema::Field::Type::INTEGER) {
+                    *reinterpret_cast<int *>(column.getValue(Slice(_buffs.back())).content()) = value;
+                }
+                else {
+                    *reinterpret_cast<float *>(column.getValue(Slice(_buffs.back())).content()) = value;
+                }
+
+                ++_column_index;
+                return *this;
+            }
+
+            inline RecordBuilder &
             addFloat(std::string literal)
             {
                 auto column = _schema->getColumnById(_column_index);
@@ -235,6 +257,19 @@ namespace cdb {
                         literal,
                         column.getValue(Slice(_buffs.back()))
                 );
+
+                ++_column_index;
+                return *this;
+            }
+
+            inline RecordBuilder &
+            addFloat(float value)
+            {
+                auto column = _schema->getColumnById(_column_index);
+                auto type = column.getType();
+                assert(type == Schema::Field::Type::FLOAT);
+
+                *reinterpret_cast<float *>(column.getValue(Slice(_buffs.back())).content()) = value;
 
                 ++_column_index;
                 return *this;

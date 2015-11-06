@@ -24,7 +24,7 @@ View::select(Schema *schema, Filter filter)
     Buffer row(schema->getRecordSize());
 
     for (auto iter = begin(); iter != end(); iter.next()) {
-        if (!filter(_schema.get(), iter.slice())) {
+        if (!filter(_schema.get(), iter.constSlice())) {
             continue;
         }
 
@@ -32,7 +32,7 @@ View::select(Schema *schema, Filter filter)
             auto original_col = _schema->getColumnById(map_table[i]);
             auto remote_col = schema->getColumnById(i);
 
-            auto original_slice = original_col.getValue(iter.slice());
+            auto original_slice = original_col.getValue(iter.constSlice());
             std::copy(
                     original_slice.cbegin(),
                     original_slice.cend(),
@@ -65,8 +65,8 @@ View::selectRange(Schema *schema, Iterator b, Iterator e, Filter filter)
 
     Buffer row(schema->getRecordSize());
 
-    while (b != e) {
-        if (!filter(_schema.get(), b.slice())) {
+    for (; b != e; b.next()) {
+        if (!filter(_schema.get(), b.constSlice())) {
             continue;
         }
 
@@ -74,7 +74,7 @@ View::selectRange(Schema *schema, Iterator b, Iterator e, Filter filter)
             auto original_col = _schema->getColumnById(map_table[i]);
             auto remote_col = schema->getColumnById(i);
 
-            auto original_slice = original_col.getValue(b.slice());
+            auto original_slice = original_col.getValue(b.constSlice());
             std::copy(
                     original_slice.cbegin(),
                     original_slice.cend(),
@@ -112,17 +112,17 @@ View::selectIndexed(Schema *schema, Iterator b, Iterator e, cdb::View::Filter fi
     Buffer row(schema->getRecordSize());
 
     for (; b != e; b.next()) {
-        auto key = index_key_col.getValue(b.slice());
+        auto key = index_key_col.getValue(b.constSlice());
         auto iter = lowerBound(key.cbegin());
 
         if (!equal(
-                index_key_col.getValue(b.slice()).cbegin(),
-                key_col.getValue(iter.slice()).cbegin()
+                index_key_col.getValue(b.constSlice()).cbegin(),
+                key_col.getValue(iter.constSlice()).cbegin()
         )) {
             continue;
         }
 
-        if (!filter(_schema.get(), iter.slice())) {
+        if (!filter(_schema.get(), iter.constSlice())) {
             continue;
         }
 
@@ -130,7 +130,7 @@ View::selectIndexed(Schema *schema, Iterator b, Iterator e, cdb::View::Filter fi
             auto original_col = _schema->getColumnById(map_table[i]);
             auto remote_col = schema->getColumnById(i);
 
-            auto original_slice = original_col.getValue(iter.slice());
+            auto original_slice = original_col.getValue(iter.constSlice());
             std::copy(
                     original_slice.cbegin(),
                     original_slice.cend(),

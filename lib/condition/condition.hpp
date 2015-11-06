@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 
+#include "lib/utils/buffer.hpp"
 #include "visitor.hpp"
 
 namespace cdb {
@@ -42,7 +43,21 @@ namespace cdb {
         virtual void accept(ConditionVisitor *v);
     };
 
-    struct CompareExpr : public ConditionExpr
+    struct FalseExpr : public ConditionExpr
+    {
+        virtual void accept(ConditionVisitor *v);
+    };
+
+    struct EvalExpr : public ConditionExpr
+    {
+        std::string column_name;
+
+        EvalExpr(std::string column_name)
+                : column_name(column_name)
+        { }
+    };
+
+    struct CompareExpr : public EvalExpr
     {
         enum class Operator
         {
@@ -54,12 +69,23 @@ namespace cdb {
             LT
         };
 
-        std::string column_name;
         Operator op;
         std::string literal;
 
         CompareExpr(std::string column_name, Operator op, std::string literal)
-                : column_name(column_name), op(op), literal(literal)
+                : EvalExpr(column_name), op(op), literal(literal)
+        { }
+
+        virtual void accept(ConditionVisitor *v);
+    };
+
+    struct RangeExpr : public EvalExpr
+    {
+        std::string lower_value;
+        std::string upper_value;
+
+        RangeExpr(std::string column_name, std::string lower_value, std::string upper_value)
+                : EvalExpr(column_name), lower_value(lower_value), upper_value(upper_value)
         { }
 
         virtual void accept(ConditionVisitor *v);

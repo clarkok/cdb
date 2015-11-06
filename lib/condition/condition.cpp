@@ -13,3 +13,11 @@ OrExpr::accept(ConditionVisitor *visitor)
 void
 CompareExpr::accept(ConditionVisitor *visitor)
 { visitor->visit(this); }
+
+void
+RangeExpr::accept(ConditionVisitor *visitor)
+{ visitor->visit(this); }
+
+void
+FalseExpr::accept(ConditionVisitor *visitor)
+{ visitor->visit(this); }

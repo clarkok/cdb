@@ -10,6 +10,7 @@
 using namespace cdb;
 
 static const char TEST_PATH[] = TMP_PATH_PREFIX "/table-test.tmp";
+static const int SMALL_NUMBER = 10;
 
 class TableTest : public ::testing::Test
 {
@@ -145,6 +146,51 @@ TEST_F(TableTest, select)
             }
     );
     EXPECT_EQ(3, count);
+
+    builder->reset()
+            .addRow()
+            .addValue("3")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            .addRow()
+            .addValue("4")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            .addRow()
+            .addValue("5")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            ;
+    uut->insert(builder->getSchema(), builder->getRows());
+
+    count = 0;
+    uut->select(
+            nullptr,
+            nullptr,
+            [&](ConstSlice row)
+            {
+                auto id_col = schema->getPrimaryColumn();
+                auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                EXPECT_EQ(std::to_string(count ++), id);
+
+                auto name_col = schema->getColumnByName("name");
+                auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
+                EXPECT_EQ("lalala", name);
+
+                auto gpa_col = schema->getColumnByName("gpa");
+                auto gpa = Convert::toString(gpa_col.getType(), gpa_col.getValue(row));
+                auto gpa_float = std::stof(gpa);
+                EXPECT_TRUE(0.00001 > std::abs(gpa_float - 1.0));
+
+                auto gender_col = schema->getColumnByName("gender");
+                auto gender = Convert::toString(gender_col.getType(), gender_col.getValue(row));
+                EXPECT_EQ("1", gender);
+            }
+    );
+    EXPECT_EQ(6, count);
 }
 
 TEST_F(TableTest, selectWithSchema)
@@ -216,7 +262,7 @@ TEST_F(TableTest, selectWithCondition)
             .addValue("1")
             .addValue("lalala")
             .addValue("1.0")
-            .addValue("1")
+            .addValue("0")
             .addRow()
             .addValue("2")
             .addValue("lalala")
@@ -226,11 +272,14 @@ TEST_F(TableTest, selectWithCondition)
 
     uut->insert(builder->getSchema(), builder->getRows());
 
-    int count = 0;
+    std::unique_ptr<ConditionExpr> condition(
+            new CompareExpr("id", CompareExpr::Operator::EQ, "0")
+    );
 
+    int count = 0;
     uut->select(
             uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name"}),
-            new CompareExpr("id", CompareExpr::Operator::EQ, "0"),
+            condition.get(),
             [&](ConstSlice row)
             {
                 auto id_col = schema->getPrimaryColumn();
@@ -240,6 +289,149 @@ TEST_F(TableTest, selectWithCondition)
                 auto name_col = schema->getColumnByName("name");
                 auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
                 EXPECT_EQ("lalala", name);
+            }
+    );
+    EXPECT_EQ(1, count);
+
+    condition.reset(
+            new CompareExpr("name", CompareExpr::Operator::EQ, "lalala")
+    );
+    count = 0;
+    uut->select(
+            uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name"}),
+            condition.get(),
+            [&](ConstSlice row)
+            {
+                auto id_col = schema->getPrimaryColumn();
+                auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                EXPECT_EQ(std::to_string(count ++), id);
+
+                auto name_col = schema->getColumnByName("name");
+                auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
+                EXPECT_EQ("lalala", name);
+            }
+    );
+    EXPECT_EQ(3, count);
+
+    condition.reset(
+            new AndExpr(
+                    new CompareExpr("id", CompareExpr::Operator::LT, "2"),
+                    new CompareExpr("gender", CompareExpr::Operator::EQ, "1")
+            )
+    );
+    count = 0;
+    uut->select(
+            uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name"}),
+            condition.get(),
+            [&](ConstSlice row)
+            {
+                auto id_col = schema->getPrimaryColumn();
+                auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                EXPECT_EQ(std::to_string(count ++), id);
+
+                auto name_col = schema->getColumnByName("name");
+                auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
+                EXPECT_EQ("lalala", name);
+            }
+    );
+    EXPECT_EQ(1, count);
+}
+
+TEST_F(TableTest, index)
+{
+    std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
+            {
+                    "id",
+                    "name",
+                    "gpa",
+                    "gender",
+            }
+    ));
+
+    for (int i = 0; i < SMALL_NUMBER; ++i) {
+        builder->addRow()
+                .addInteger(i)
+                .addChar("name" + std::to_string(i))
+                .addFloat(i)
+                .addInteger(i & 1);
+    }
+
+    uut->insert(builder->getSchema(), builder->getRows());
+    uut->createIndex("gpa");
+
+    std::unique_ptr<ConditionExpr> condition(
+            uut->optimizeCondition(
+                    new AndExpr(
+                            new CompareExpr("gpa", CompareExpr::Operator::LT, "8.1"),
+                            new CompareExpr("gpa", CompareExpr::Operator::GE, "1.9")
+                    )
+            )
+    );
+
+    int count = 0;
+    uut->select(
+            uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name", "gpa"}),
+            condition.get(),
+            [&](ConstSlice row)
+            {
+                auto id_col = schema->getColumnByName("id");
+                auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                EXPECT_EQ(std::to_string(count + 2), id);
+
+                auto name_col = schema->getColumnByName("name");
+                auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
+                EXPECT_EQ("name" + std::to_string(count + 2), name);
+
+                auto gpa_col = schema->getColumnByName("gpa");
+                EXPECT_EQ(
+                        static_cast<float>(count + 2),
+                        *reinterpret_cast<const float*>(gpa_col.getValue(row).content())
+                );
+
+                count++;
+            }
+    );
+    EXPECT_EQ(7, count);
+
+    builder->reset();
+    for (int i = SMALL_NUMBER; i < SMALL_NUMBER * 2; ++i) {
+        builder->addRow()
+                .addInteger(i)
+                .addChar("name" + std::to_string(i))
+                .addFloat(i)
+                .addInteger(i & 1);
+    }
+
+    uut->insert(builder->getSchema(), builder->getRows());
+    condition.reset(
+            uut->optimizeCondition(
+                    new AndExpr(
+                            new CompareExpr("gpa", CompareExpr::Operator::LT, "2.9"),
+                            new CompareExpr("gpa", CompareExpr::Operator::GE, "1.9")
+                    )
+            )
+    );
+    count = 0;
+    uut->select(
+            uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name", "gpa"}),
+            condition.get(),
+            [&](ConstSlice row)
+            {
+                auto id_col = schema->getColumnByName("id");
+                auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                EXPECT_EQ(std::to_string(count + 2), id);
+
+                auto name_col = schema->getColumnByName("name");
+                auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
+                EXPECT_EQ("name" + std::to_string(count + 2), name);
+
+                auto gpa_col = schema->getColumnByName("gpa");
+                EXPECT_EQ(
+                        static_cast<float>(count + 2),
+                        *reinterpret_cast<const float*>(gpa_col.getValue(row).content())
+                );
+
+                count++;
             }
     );
     EXPECT_EQ(1, count);

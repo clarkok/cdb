@@ -4,6 +4,7 @@
 #include "lib/utils/comparator.hpp"
 #include "lib/utils/convert.hpp"
 #include "index-view.hpp"
+#include "optimize-visitor.hpp"
 
 using namespace cdb;
 
@@ -65,22 +66,52 @@ public:
         }
 
         Schema *index_schema = _owner->buildSchemaForIndex(expr->column_name);
-        auto index_type = index_schema->getPrimaryColumn().getType();
-        auto index_length = index_schema->getPrimaryColumn().getField()->length;
+        auto index_col = index_schema->getPrimaryColumn();
+        auto index_type = index_col.getType();
+        auto index_length = index_col.getField()->length;
+
+        auto primary_col = index_schema->getColumnById(1);
+        auto primary_type = primary_col.getType();
+        auto primary_length = primary_col.getField()->length;
 
         std::unique_ptr<View> index_view(new IndexView(
                 index_schema,
                 _owner->buildIndexBTree(index_root, index_schema)
         ));
-        auto key = Convert::fromString(index_type, index_length, expr->literal);
+
+        Buffer lower_key(index_schema->getRecordSize());
+        Convert::fromString(
+                index_type,
+                index_length,
+                expr->literal,
+                index_col.getValue(Slice(lower_key))
+        );
+        Convert::minLimit(
+                primary_type,
+                primary_length,
+                primary_col.getValue(Slice(lower_key))
+        );
+
+        Buffer upper_key(index_schema->getRecordSize());
+        Convert::fromString(
+                index_type,
+                index_length,
+                expr->literal,
+                index_col.getValue(Slice(upper_key))
+        );
+        Convert::maxLimit(
+                primary_type,
+                primary_length,
+                primary_col.getValue(Slice(upper_key))
+        );
 
         switch (expr->op) {
             case CompareExpr::Operator::EQ:
             {
                 _index_view.reset(index_view->selectRange(
                         _primary_schema,
-                        index_view->lowerBound(key.content()),
-                        index_view->upperBound(key.content())
+                        index_view->lowerBound(lower_key.content()),
+                        index_view->upperBound(upper_key.content())
                 ));
                 break;
             }
@@ -89,7 +120,7 @@ public:
                 _index_view.reset(index_view->selectRange(
                         _primary_schema,
                         index_view->begin(),
-                        index_view->lowerBound(key.content())
+                        index_view->lowerBound(lower_key.content())
                 ));
                 if (_index_view->count() > _threshold) {
                     _index_view.reset();
@@ -97,7 +128,7 @@ public:
                 }
                 std::unique_ptr<ModifiableView> upper(index_view->selectRange(
                         _primary_schema,
-                        index_view->upperBound(key.content()),
+                        index_view->upperBound(upper_key.content()),
                         index_view->end()
                 ));
                 _index_view->join(upper->begin(), upper->end());
@@ -107,7 +138,7 @@ public:
             {
                 _index_view.reset(index_view->selectRange(
                         _primary_schema,
-                        index_view->upperBound(key.content()),
+                        index_view->upperBound(upper_key.content()),
                         index_view->end()
                 ));
                 break;
@@ -116,7 +147,7 @@ public:
             {
                 _index_view.reset(index_view->selectRange(
                         _primary_schema,
-                        index_view->lowerBound(key.content()),
+                        index_view->lowerBound(lower_key.content()),
                         index_view->end()
                 ));
                 break;
@@ -126,7 +157,7 @@ public:
                 _index_view.reset(index_view->selectRange(
                         _primary_schema,
                         index_view->begin(),
-                        index_view->lowerBound(key.content())
+                        index_view->lowerBound(lower_key.content())
                 ));
                 break;
             }
@@ -135,7 +166,7 @@ public:
                 _index_view.reset(index_view->selectRange(
                         _primary_schema,
                         index_view->begin(),
-                        index_view->upperBound(key.content())
+                        index_view->upperBound(upper_key.content())
                 ));
                 break;
             }
@@ -143,8 +174,69 @@ public:
         if (_index_view->count() > _threshold) {
             _index_view.reset();
         }
-        return;
     }
+
+    virtual void visit(RangeExpr *expr)
+    {
+        auto index_root = _owner->findIndex(expr->column_name);
+        if (!index_root) {
+            _index_view = nullptr;
+            return ;
+        }
+
+        Schema *index_schema = _owner->buildSchemaForIndex(expr->column_name);
+        auto index_col = index_schema->getPrimaryColumn();
+        auto index_type = index_col.getType();
+        auto index_length = index_col.getField()->length;
+
+        auto primary_col = index_schema->getColumnById(1);
+        auto primary_type = primary_col.getType();
+        auto primary_length = primary_col.getField()->length;
+
+        std::unique_ptr<View> index_view(new IndexView(
+                index_schema,
+                _owner->buildIndexBTree(index_root, index_schema)
+        ));
+
+        Buffer lower_key(index_schema->getRecordSize());
+        Convert::fromString(
+                index_type,
+                index_length,
+                expr->lower_value,
+                index_col.getValue(Slice(lower_key))
+        );
+        Convert::minLimit(
+                primary_type,
+                primary_length,
+                primary_col.getValue(Slice(lower_key))
+        );
+
+        Buffer upper_key(index_schema->getRecordSize());
+        Convert::fromString(
+                index_type,
+                index_length,
+                expr->upper_value,
+                index_col.getValue(Slice(upper_key))
+        );
+        Convert::maxLimit(
+                primary_type,
+                primary_length,
+                primary_col.getValue(Slice(upper_key))
+        );
+
+        _index_view.reset(index_view->selectRange(
+                _primary_schema,
+                index_view->lowerBound(lower_key.content()),
+                index_view->upperBound(upper_key.content())
+        ));
+
+        if (_index_view->count() > _threshold) {
+            _index_view.reset();
+        }
+    }
+
+    virtual void visit(FalseExpr *)
+    { assert(false); }
 };
 
 class Table::FilterVisitor : public ConditionVisitor
@@ -234,7 +326,25 @@ public:
                         data.content()
                 );
                 break;
-            } } }
+            }
+        }
+    }
+
+    virtual void visit(RangeExpr *expr)
+    {
+        auto col = _schema->getColumnByName(expr->column_name);
+        auto lower_value = Convert::fromString(col.getType(), col.getField()->length, expr->lower_value);
+        auto upper_value = Convert::fromString(col.getType(), col.getField()->length, expr->upper_value);
+        auto less = Comparator::getCompareFuncByTypeLT(col.getType());
+        auto data = col.getValue(_data);
+
+        _result =
+                !less(data.content(), lower_value.content()) &&
+                 less(data.content(), upper_value.content());
+    }
+
+    virtual void visit(FalseExpr *)
+    { _result = false; }
 };
 
 Schema *
@@ -331,6 +441,10 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
         return;
     }
 
+    if (dynamic_cast<FalseExpr*>(condition)) {
+        return;
+    }
+
     std::unique_ptr<Schema> primary_schema(buildSchemaFromColumnNames(
             std::vector<std::string>{primary_col.getField()->name})
     );
@@ -367,6 +481,7 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
 View::Filter
 Table::buildFilter(ConditionExpr *condition)
 {
+    // TODO
     return [=] (const Schema *schema, ConstSlice slice) -> bool
     {
         FilterVisitor v(schema, slice);
@@ -376,8 +491,12 @@ Table::buildFilter(ConditionExpr *condition)
 }
 
 Length
+Table::calculateRecordPerBlock() const
+{ return (Driver::BLOCK_SIZE / _schema->getRecordSize()); }
+
+Length
 Table::calculateThreshold() const
-{ return _count / (Driver::BLOCK_SIZE / _schema->getRecordSize()); }
+{ return _count / calculateRecordPerBlock(); }
 
 Schema *
 Table::buildSchemaFromColumnNames(std::set<std::string> columns_set)
@@ -611,3 +730,11 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
 Table::RecordBuilder *
 Table::getRecordBuilder(std::vector<std::string> fields)
 { return new RecordBuilder(buildSchemaFromColumnNames(fields)); }
+
+ConditionExpr *
+Table::optimizeCondition(ConditionExpr *expr)
+{
+    OptimizeVisitor v(this);
+    expr->accept(&v);
+    return v.get();
+}
