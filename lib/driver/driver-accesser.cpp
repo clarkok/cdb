@@ -11,7 +11,19 @@ Block::Block(const Block &block)
 
 Block &
 Block::operator = (const Block &block)
-{ return this->operator=(std::move(block._owner->aquire(block._index))); }
+{
+    assert(this != &block);
+
+    if (_index) {
+        _owner->release(_index);
+    }
+
+    _owner = block._owner;
+    _index = block._index;
+    _slice = _owner->access(_index);
+
+    return *this;
+}
 
 Block &
 Block::operator = (Block &&block)

@@ -483,4 +483,33 @@ TEST_F(BTreeTest, Iterator)
     }
 }
 
+TEST_F(BTreeTest, OtherKeyValueSize)
+{
+    allocator->reset();
+    uut.reset(new BTree(
+            accesser.get(),
+            [](const Byte *a, const Byte *b) -> bool
+            {
+                return
+                        *reinterpret_cast<const int*>(a) <
+                        *reinterpret_cast<const int*>(b);
+            },
+            [](const Byte *a, const Byte *b) -> bool
+            {
+                return
+                        *reinterpret_cast<const int*>(a) ==
+                        *reinterpret_cast<const int*>(b);
+            },
+            accesser->allocateBlock(),
+            sizeof(int),
+            sizeof(28)
+    ));
+    uut->reset();
+
+    for (int i = 0; i < TEST_LARGE_NUMBER; ++i) {
+        auto iter = uut->insert(uut->makeKey(&i));
+        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
+    }
+}
+
 }

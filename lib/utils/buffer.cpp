@@ -1,3 +1,4 @@
+#include <cassert>
 #include "buffer.hpp"
 
 using namespace cdb;
@@ -13,7 +14,7 @@ namespace cdb {
 
         BufferImpl(Length length)
             : length(length), content(new Byte[length])
-        { }
+        { assert(content); }
 
         BufferImpl(BufferImpl &&impl)
             : length(impl.length), content(impl.content)
