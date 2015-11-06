@@ -1,3 +1,4 @@
+#include <iostream>
 #include "basic-accesser.hpp"
 
 using namespace cdb;
@@ -14,13 +15,14 @@ BasicAccesser::~BasicAccesser()
 Slice
 BasicAccesser::access(BlockIndex index)
 {
-    auto result = _buffers.emplace(index, BufferWithCount{1, Buffer(Driver::BLOCK_SIZE)});
+    auto result = _buffers.emplace(index, BufferWithCount(1, Buffer(Driver::BLOCK_SIZE)));
     if (result.second) {
         _drv->readBlock(index, result.first->second.buffer);
     }
     else {
         result.first->second.count ++;
     }
+    // std::cerr << index << " -- " << result.first->second.count;
     return result.first->second.buffer;
 }
 
@@ -29,6 +31,7 @@ BasicAccesser::release(BlockIndex index)
 {
     auto iter = _buffers.find(index);
     if (iter != _buffers.end()) {
+        // std::cerr << index << " -- " << iter->second.count - 1;
         if (--(iter->second.count) == 0) {
             _drv->writeBlock(index, iter->second.buffer);
             _buffers.erase(iter);

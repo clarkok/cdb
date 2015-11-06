@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cmath>
 #include <lib/utils/comparator.hpp>
 #include "lib/driver/basic-driver.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
@@ -139,7 +140,7 @@ TEST_F(TableTest, select)
                 auto gpa_col = schema->getColumnByName("gpa");
                 auto gpa = Convert::toString(gpa_col.getType(), gpa_col.getValue(row));
                 auto gpa_float = std::stof(gpa);
-                EXPECT_TRUE(0.00001 > std::abs(gpa_float - 1.0));
+                EXPECT_TRUE(0.00001 > std::fabs(gpa_float - 1.0));
 
                 auto gender_col = schema->getColumnByName("gender");
                 auto gender = Convert::toString(gender_col.getType(), gender_col.getValue(row));
@@ -184,7 +185,7 @@ TEST_F(TableTest, select)
                 auto gpa_col = schema->getColumnByName("gpa");
                 auto gpa = Convert::toString(gpa_col.getType(), gpa_col.getValue(row));
                 auto gpa_float = std::stof(gpa);
-                EXPECT_TRUE(0.00001 > std::abs(gpa_float - 1.0));
+                EXPECT_TRUE(0.00001 > std::fabs(gpa_float - 1.0));
 
                 auto gender_col = schema->getColumnByName("gender");
                 auto gender = Convert::toString(gender_col.getType(), gender_col.getValue(row));
@@ -458,7 +459,16 @@ TEST_F(TableTest, LargeTest)
                 .addInteger(i & 1);
     }
 
-    uut->insert(builder->getSchema(), builder->getRows());
+    auto rows = builder->getRows();
+
+    ASSERT_EQ(LARGE_NUMBER, rows.size());
+    int i = 0;
+    for (auto &buff : *builder) {
+        ASSERT_EQ(buff.length(), rows[i].length()) << "i = " << i;
+        ASSERT_EQ(buff.content(), rows[i].content()) << "i = " << i;
+    }
+
+    uut->insert(builder->getSchema(), rows);
 
     int count = 0;
     uut->select(uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name"}),

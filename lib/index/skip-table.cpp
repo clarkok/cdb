@@ -390,11 +390,11 @@ SkipTable::erase(Iterator pos)
             if (ptr->next) {
                 ptr->next->prev = ptr->prev;
             }
-            delete ptr;
             NonLeaf *new_parent = static_cast<NonLeaf*>(parent->prev);
             for (auto *child = ptr->next; child && child->parent == parent; child = child->next) {
                 child->parent = new_parent;
             }
+            delete ptr;
             ptr = parent;
             parent = ptr->parent;
             is_child = parent && parent->child == ptr;
@@ -450,6 +450,9 @@ std::ostream &
 SkipTable::__debug_output(std::ostream &os, std::function<void(std::ostream &, Key)> print)
 {
     Node *head = _root;
+    if (!head) {
+        return os;
+    }
     do {
         auto *ptr = head;
         while (ptr) {

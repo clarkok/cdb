@@ -1,14 +1,18 @@
 #ifndef _DB_DRIVER_DRIVER_ACCESSER_H_
 #define _DB_DRIVER_DRIVER_ACCESSER_H_
 
+#include <limits>
 #include "lib/utils/slice.hpp"
 
 #include "driver.hpp"
 #include "block-allocator.hpp"
 
+#include <map>
 #include <iostream>
 
 namespace cdb {
+
+    std::map<BlockIndex, int> &_get_debug_counter();
 
     class DriverAccesser;
 
@@ -19,13 +23,21 @@ namespace cdb {
         Slice _slice;
         Block(DriverAccesser *owner, BlockIndex index, Slice slice)
             : _owner(owner), _index(index), _slice(slice)
-        { std::cerr << "ctor " << index << std::endl; }
+        {
+            auto count = ++_get_debug_counter()[index];
+            // std::cerr << "ctor " << index << " | " << count << std::endl;
+        }
 
         friend class DriverAccesser;
     public:
+        static const BlockIndex NON_BLOCK = std::numeric_limits<BlockIndex>::max();
+
         Block(Block &&block)
             : _owner(block._owner), _index(block._index), _slice(block._slice)
-        { block._index = 0; }
+        {
+            block._index = NON_BLOCK;
+            // std::cerr << "move ctor " << _index << " | " << _get_debug_counter()[_index] << std::endl;
+        }
 
         Block &operator = (Block &&block);
 

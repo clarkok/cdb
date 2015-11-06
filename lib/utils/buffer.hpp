@@ -28,7 +28,6 @@ namespace cdb {
         Buffer(Length length);
         Buffer(const Buffer &buffer);
         Buffer(const Byte* cbegin, const Byte* cend);
-        Buffer(Buffer &&buffer);
 
         inline Length
         length() const

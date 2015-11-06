@@ -18,7 +18,7 @@ namespace cdb {
     struct TableTypeNotSupportedException : public std::exception
     {
         virtual const char *
-        what() const _GLIBCXX_NOEXCEPT
+        what() const noexcept
         { return "Type not support currently"; }
     };
 
@@ -31,7 +31,7 @@ namespace cdb {
         { }
 
         virtual const char *
-        what() const _GLIBCXX_NOEXCEPT
+        what() const noexcept
         { return ("Index exists on field `" + field + '`').c_str(); }
     };
 
@@ -44,7 +44,7 @@ namespace cdb {
         { }
 
         virtual const char *
-        what() const _GLIBCXX_NOEXCEPT
+        what() const noexcept
         { return ("Index not found on field `" + field + '`').c_str(); }
     };
 
@@ -174,6 +174,14 @@ namespace cdb {
 
             friend class Table;
         public:
+            inline decltype(_buffs.begin())
+            begin()
+            { return _buffs.begin(); }
+
+            inline decltype(_buffs.end())
+            end()
+            { return _buffs.end(); }
+
             inline RecordBuilder &
             reset()
             {
