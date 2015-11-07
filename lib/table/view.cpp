@@ -113,11 +113,11 @@ View::selectIndexed(Schema *schema, Iterator b, Iterator e, cdb::View::Filter fi
 
     for (; b != e; b.next()) {
         auto key = index_key_col.getValue(b.constSlice());
-        auto iter = lowerBound(key.cbegin());
+        auto iter = lowerBound(key.content());
 
         if (!equal(
-                index_key_col.getValue(b.constSlice()).cbegin(),
-                key_col.getValue(iter.constSlice()).cbegin()
+                index_key_col.getValue(b.constSlice()).content(),
+                key_col.getValue(iter.constSlice()).content()
         )) {
             continue;
         }

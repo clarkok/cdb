@@ -349,7 +349,7 @@ SkipTable::first() const
 
 SkipTable::Key
 SkipTable::getKeyOfValue(ConstSlice value) const
-{ return value.cbegin() + _key_offset; }
+{ return value.content() + _key_offset; }
 
 void
 SkipTable::clear()

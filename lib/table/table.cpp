@@ -663,18 +663,22 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
     bool use_auto_increment = primary_col.getField()->isAutoIncreased() &&
             !schema->hasColumn(_schema->getPrimaryColumn().getField()->name);
 
+    assert(!use_auto_increment);
+
     std::unique_ptr<BTree> data_tree(buildDataBTree());
     std::vector<std::unique_ptr<BTree> > index_trees;
 
     for (auto &index : _indices) {
+        std::unique_ptr<Schema> index_schema(buildSchemaForIndex(index.column_name));
         index_trees.emplace_back(buildIndexBTree(
                 index.root,
-                buildSchemaForIndex(index.column_name)
+                index_schema.get()
         ));
     }
 
     Buffer key_buff(primary_col.getField()->length);
     for (auto &row : rows) {
+        assert(row.length() == schema->getRecordSize());
         if (use_auto_increment) {
             int autoinc_value = primary_col.getField()->autoIncrement();
             std::copy(
@@ -692,10 +696,12 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
             auto original_col = schema->getColumnById(i);
 
             auto original_slice = original_col.getValue(row);
+            auto remote_slice = remote_col.getValue(iter.getValue());
+            assert(remote_slice.length() >= original_slice.length());
             std::copy(
                     original_slice.cbegin(),
                     original_slice.cend(),
-                    remote_col.getValue(iter.getValue()).begin()
+                    remote_slice.begin()
             );
         }
 
@@ -737,4 +743,22 @@ Table::optimizeCondition(ConditionExpr *expr)
     OptimizeVisitor v(this);
     expr->accept(&v);
     return v.get();
+}
+
+void
+Table::reset()
+{
+    std::unique_ptr<BTree> data_btree(buildDataBTree());
+    data_btree->reset();
+
+    for (auto &index : _indices) {
+        std::unique_ptr<Schema> schema(buildSchemaForIndex(index.column_name));
+        std::unique_ptr<BTree> index_btree(
+                buildIndexBTree(
+                    index.root,
+                    schema.get()
+                    )
+                );
+        index_btree->reset();
+    }
 }

@@ -393,7 +393,7 @@ BTree::findInLeaf(Block &leaf, Key key)
             );
     }
     else {
-        return Iterator(this, leaf, iter.entry - leaf.begin());
+        return Iterator(this, leaf, iter.entry - leaf.content());
     }
 }
 
@@ -507,7 +507,7 @@ BTree::insertInLeaf(Block &leaf, Key key)
             current >= entry_start && 
             _equal(getKeyFromLeafEntry(current), getPointerOfKey(key))
     ) {
-        return Iterator(this, leaf, current - leaf.begin());
+        return Iterator(this, leaf, current - leaf.content());
     }
 
     ++header->entry_count;
@@ -524,7 +524,7 @@ BTree::insertInLeaf(Block &leaf, Key key)
             getKeyFromLeafEntry(insert_point)
         );
 
-    return Iterator(this, leaf, insert_point - leaf.begin());
+    return Iterator(this, leaf, insert_point - leaf.content());
 }
 
 void

@@ -11,6 +11,7 @@ using namespace cdb;
 
 static const char TEST_PATH[] = TMP_PATH_PREFIX "/table-test.tmp";
 static const int SMALL_NUMBER = 10;
+static const int LARGE_NUMBER = 10000;
 
 class TableTest : public ::testing::Test
 {
@@ -36,21 +37,8 @@ protected:
                 .release());
 
         auto root = allocator->allocateBlock();
-
-        std::unique_ptr<BTree> tree(
-                new BTree(
-                        accesser.get(),
-                        Comparator::getIntegerCompareFuncLT(),
-                        Comparator::getIntegerCompareFuncEQ(),
-                        root,
-                        sizeof(int),
-                        schema->getRecordSize()
-                )
-        );
-        tree->reset();
-        tree.reset();
-
         uut.reset(Table::Factory(accesser.get(), schema->copy(), root).release());
+        uut->reset();
     }
 };
 
@@ -435,4 +423,28 @@ TEST_F(TableTest, index)
             }
     );
     EXPECT_EQ(1, count);
+}
+
+TEST_F(TableTest, LargeNumber)
+{
+    std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
+            {
+                    "id",
+                    "name",
+                    "gpa",
+                    "gender",
+            }
+    ));
+
+    for (int i = 0; i < LARGE_NUMBER; ++i) {
+        builder->reset()
+                .addRow()
+                .addInteger(i)
+                .addChar("name" + std::to_string(i))
+                .addFloat(i)
+                .addInteger(i & 1);
+        auto row = builder->getRows();
+        ASSERT_EQ(builder->cbegin()->content(), row.begin()->content());
+        uut->insert(builder->getSchema(), row);
+    }
 }

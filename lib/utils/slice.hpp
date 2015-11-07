@@ -3,7 +3,9 @@
 
 #include <cassert>
 #include <algorithm>
+#include <iterator>
 
+#include "byte_iterator.hpp"
 #include "buffer.hpp"
 
 namespace cdb {
@@ -16,7 +18,11 @@ namespace cdb {
     {
         Byte* content_;
         Length length_;
+
     public:
+        typedef _Iterator::Iterator<Byte> SliceIterator;
+        typedef _Iterator::Iterator<const Byte> ConstSliceIterator;
+
         Slice(Byte* content, Length length);
 
         Slice(Buffer &buffer)
@@ -38,21 +44,21 @@ namespace cdb {
                     const_cast<const Slice*>(this)->content());
         }
 
-        inline const Byte*
+        inline ConstSliceIterator
         cbegin() const
-        { return content(); }
+        { return ConstSliceIterator(content(), content(), content() + length()); }
 
-        inline const Byte*
+        inline ConstSliceIterator
         cend() const
-        { return content() + length(); }
+        { return ConstSliceIterator(content() + length(), content(), content() + length()); }
 
-        inline Byte*
+        inline SliceIterator
         begin()
-        { return content(); }
+        { return SliceIterator(content(), content(), content() + length()); }
 
-        inline Byte*
+        inline SliceIterator
         end()
-        { return content() + length(); }
+        { return SliceIterator(content() + length(), content(), content() + length()); }
 
         inline Slice
         subSlice(Length index)
@@ -74,6 +80,8 @@ namespace cdb {
         const Byte* content_;
         Length length_;
     public:
+        typedef _Iterator::Iterator<const Byte> ConstSliceIterator;
+
         ConstSlice(const Byte* content_, Length length);
 
         ConstSlice(const Buffer &buffer)
@@ -92,13 +100,13 @@ namespace cdb {
         content() const
         { return content_; }
 
-        inline const Byte*
+        inline ConstSliceIterator
         cbegin() const
-        { return content(); }
+        { return ConstSliceIterator(content(), content(), content() + length()); }
 
-        inline const Byte*
+        inline ConstSliceIterator
         cend() const
-        { return content() + length(); }
+        { return ConstSliceIterator(content() + length(), content(), content() + length()); }
 
         inline ConstSlice
         subSlice(Length index)

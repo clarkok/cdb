@@ -53,19 +53,19 @@ namespace cdb {
         content()
         { return slice().content(); }
 
-        inline const Byte*
+        inline Slice::ConstSliceIterator
         cbegin() const
         { return slice().cbegin(); }
 
-        inline const Byte*
+        inline Slice::ConstSliceIterator
         cend() const
         { return slice().cend(); }
 
-        inline Byte*
+        inline Slice::SliceIterator
         begin()
         { return slice().begin(); }
 
-        inline Byte*
+        inline Slice::SliceIterator
         end()
         { return slice().end(); }
 

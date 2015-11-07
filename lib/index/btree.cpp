@@ -208,7 +208,7 @@ BTree::erase(Key key)
                 key.pointer + _key_size,
                 removal_key_buffer.content()
             );
-        removal_key.pointer = removal_key_buffer.cbegin();
+        removal_key.pointer = removal_key_buffer.content();
     }
 
     BlockStack path;

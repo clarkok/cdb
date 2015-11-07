@@ -101,6 +101,8 @@ namespace cdb {
 
         ConditionExpr *optimizeCondition(ConditionExpr *);
 
+        void reset();
+
         /**
          * Select on this table
          *
@@ -187,8 +189,11 @@ namespace cdb {
             getRows() const
             {
                 std::vector<ConstSlice> ret;
-                for (auto &buffer : _buffs) {
+                for (const auto &buffer : _buffs) {
+                    assert(buffer.useCount() == 1);
                     ret.emplace_back(buffer);
+                    assert(buffer.useCount() == 1);
+                    assert(ret.back().content() == buffer.content());
                 }
                 return ret;
             }
@@ -196,6 +201,14 @@ namespace cdb {
             inline Schema *
             getSchema() const
             { return _schema.get(); }
+
+            inline decltype(_buffs.cbegin())
+            cbegin() const
+            { return _buffs.cbegin(); }
+
+            inline decltype(_buffs.cend())
+            cend() const
+            { return _buffs.cend(); }
 
             inline RecordBuilder &
             addRow()
