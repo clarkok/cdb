@@ -17,7 +17,7 @@ namespace cdb {
         { }
 
         virtual const char *
-        what() const _GLIBCXX_NOEXCEPT
+        what() const noexcept
         { return (name + " not found").c_str(); }
     };
 
