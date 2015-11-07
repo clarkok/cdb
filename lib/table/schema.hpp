@@ -79,7 +79,7 @@ namespace cdb {
 
             inline const Field *
             getField() const
-            { return &owner->_fields[field_id]; }
+            { return &owner->_fields.at(field_id); }
 
             inline Field::Type
             getType() const

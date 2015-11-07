@@ -663,7 +663,12 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
     bool use_auto_increment = primary_col.getField()->isAutoIncreased() &&
             !schema->hasColumn(_schema->getPrimaryColumn().getField()->name);
 
+    decltype(primary_col) remote_primary;
+
     assert(!use_auto_increment);
+    if (!use_auto_increment) {
+        remote_primary = schema->getPrimaryColumn();
+    }
 
     std::unique_ptr<BTree> data_tree(buildDataBTree());
     std::vector<std::unique_ptr<BTree> > index_trees;
@@ -684,6 +689,14 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
             std::copy(
                     reinterpret_cast<const Byte *>(&autoinc_value),
                     reinterpret_cast<const Byte *>(&autoinc_value) + sizeof(autoinc_value),
+                    key_buff.begin()
+            );
+        }
+        else {
+            auto key_field = remote_primary.getValue(row);
+            std::copy(
+                    key_field.cbegin(),
+                    key_field.cend(),
                     key_buff.begin()
             );
         }

@@ -24,6 +24,10 @@ namespace cdb {
 
             ~Iterator() = default;
 
+            inline T *
+            start() const
+            { return start_; }
+
             inline bool
             operator == (const Iterator &i) const
             {
@@ -137,7 +141,7 @@ namespace cdb {
 
         template <typename T>
         Iterator<T> &operator -= (Iterator<T> &i, int delta)
-        { return i = i + delta; }
+        { return i = i - delta; }
     }
 }
 

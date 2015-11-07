@@ -82,8 +82,8 @@ protected:
         if (header->node_is_leaf) {
             os << std::endl;
             for (int i = 0; i < header->entry_count; ++i) {
-                auto *entry = uut->getEntryInLeafByIndex(node, i);
-                os << "    " << *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry))
+                auto entry = uut->getEntryInLeafByIndex(node, i);
+                os << "    " << *reinterpret_cast<int*>(uut->getKeyFromLeafEntry(entry).start())
                     << " : " << *reinterpret_cast<int*>(uut->getValueFromLeafEntry(entry).content())
                     << std::endl;
             }
@@ -93,8 +93,8 @@ protected:
             os << "    before: " << uut->getMarkFromNode(node)->before << std::endl;
             os << std::endl;
             for (int i = 0; i < header->entry_count; ++i) {
-                auto *entry = uut->getEntryInNodeByIndex(node, i);
-                os << "    " << *reinterpret_cast<int*>(uut->getKeyFromNodeEntry(entry))
+                auto entry = uut->getEntryInNodeByIndex(node, i);
+                os << "    " << *reinterpret_cast<int*>(uut->getKeyFromNodeEntry(entry).start())
                     << ": " << *reinterpret_cast<int*>(uut->getIndexFromNodeEntry(entry))
                     << std::endl;
             }
@@ -105,7 +105,7 @@ protected:
             }
 
             for (int i = 0; i < header->entry_count; ++i) {
-                auto *entry = uut->getEntryInNodeByIndex(node, i);
+                auto entry = uut->getEntryInNodeByIndex(node, i);
                 treeDump(uut->_accesser->aquire(*uut->getIndexFromNodeEntry(entry)), os);
             }
         }
@@ -166,7 +166,7 @@ TEST_F(BTreeTest, Insert)
 
     for (int i = 0; i < TEST_NUMBER; ++i) {
         auto iter = uut->lowerBound(uut->makeKey(&i));
-        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey().start()));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
     }
 }
@@ -180,7 +180,7 @@ TEST_F(BTreeTest, InsertInReverseOrder)
 
     for (int i = 0; i < TEST_NUMBER; ++i) {
         auto iter = uut->lowerBound(uut->makeKey(&i));
-        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey().start()));
         EXPECT_EQ(i, *reinterpret_cast<int*>(iter.getValue().content()));
     }
 }
@@ -197,7 +197,7 @@ TEST_F(BTreeTest, LowerBoundButNotFound)
     for (int i = 0; i <= TEST_NUMBER; ++i) {
         auto iter = uut->lowerBound(uut->makeKey(&i));
 
-        EXPECT_EQ(((i + 15) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(((i + 15) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey().start()));
         EXPECT_EQ(((i + 15) / 16) * 16, *reinterpret_cast<const int*>(iter.getValue().content()));
     }
 }
@@ -214,7 +214,7 @@ TEST_F(BTreeTest, UpperBoundButNotFound)
     for (int i = 0; i < TEST_NUMBER; ++i) {
         auto iter = uut->upperBound(uut->makeKey(&i));
 
-        EXPECT_EQ(((i + 16) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey()));
+        EXPECT_EQ(((i + 16) / 16) * 16, *reinterpret_cast<const int*>(iter.getKey().start()));
         EXPECT_EQ(
                 ((i + 16) / 16) * 16,
                 *reinterpret_cast<const int*>(iter.getValue().content())
@@ -293,7 +293,7 @@ TEST_F(BTreeTest, LargeAmountData)
         [&count](const BTree::Iterator &i) -> void
         { 
             EXPECT_EQ(count, *reinterpret_cast<int*>(i.getValue().content()))
-                << *reinterpret_cast<const int*>(i.getKey());
+                << *reinterpret_cast<const int*>(i.getKey().start());
             ++count;
         }
     );
@@ -308,7 +308,7 @@ TEST_F(BTreeTest, LargeAmountData)
                     TEST_LARGE_NUMBER - count,
                     *reinterpret_cast<int*>(i.getValue().content())
                 )
-                << *reinterpret_cast<const int*>(i.getKey());
+                << *reinterpret_cast<const int*>(i.getKey().start());
         }
     );
     EXPECT_EQ(TEST_LARGE_NUMBER, count);
@@ -425,10 +425,10 @@ TEST_F(BTreeTest, RandomTest)
             [&count, &last, i](const BTree::Iterator &iter) -> void
             { 
                 ++count;
-                EXPECT_TRUE(last < *reinterpret_cast<const int*>(iter.getKey()))
-                    << last << " <> " << *reinterpret_cast<const int*>(iter.getKey())
+                EXPECT_TRUE(last < *reinterpret_cast<const int*>(iter.getKey().start()))
+                    << last << " <> " << *reinterpret_cast<const int*>(iter.getKey().start())
                     << " when i = " << i;
-                last = *reinterpret_cast<const int*>(iter.getKey());
+                last = *reinterpret_cast<const int*>(iter.getKey().start());
             }
         );
         EXPECT_EQ(i + 1, count);
@@ -443,10 +443,10 @@ TEST_F(BTreeTest, RandomTest)
             [&count, &last, i](const BTree::Iterator &iter) -> void
             { 
                 ++count;
-                EXPECT_TRUE(last < *reinterpret_cast<const int*>(iter.getKey()))
-                    << last << " <> " << *reinterpret_cast<const int*>(iter.getKey())
+                EXPECT_TRUE(last < *reinterpret_cast<const int*>(iter.getKey().start()))
+                    << last << " <> " << *reinterpret_cast<const int*>(iter.getKey().start())
                     << " when i = " << i;
-                last = *reinterpret_cast<const int*>(iter.getKey());
+                last = *reinterpret_cast<const int*>(iter.getKey().start());
             }
         );
         EXPECT_EQ(i, count);

@@ -32,10 +32,10 @@ namespace cdb {
 
     struct BTree::NodeEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
     {
-        Byte *entry = nullptr;
+        Slice::SliceIterator entry;
         BTree *owner = nullptr;
 
-        NodeEntryIterator(Byte *entry, BTree *owner)
+        NodeEntryIterator(Slice::SliceIterator entry, BTree *owner)
                 : entry(entry), owner(owner)
         { }
 
@@ -118,10 +118,10 @@ namespace cdb {
 
     struct BTree::LeafEntryIterator : public std::iterator<std::random_access_iterator_tag, Key>
     {
-        Byte *entry = nullptr;
+        Slice::SliceIterator entry;
         BTree *owner = nullptr;
 
-        LeafEntryIterator(Byte *entry, BTree *owner)
+        LeafEntryIterator(Slice::SliceIterator entry, BTree *owner)
                 : entry(entry), owner(owner)
         { }
 
@@ -207,7 +207,7 @@ BTree::Key
 BTree::NodeEntryIterator::operator * () const
 {
     return owner->makeKey(
-            owner->getKeyFromNodeEntry(entry),
+            owner->getKeyFromNodeEntry(entry).start(),
             owner->_key_size
         );
 }
@@ -234,7 +234,7 @@ BTree::Key
 BTree::LeafEntryIterator::operator * () const
 {
     return owner->makeKey(
-            owner->getKeyFromLeafEntry(entry),
+            owner->getKeyFromLeafEntry(entry).start(),
             owner->_key_size
         );
 }
@@ -277,48 +277,48 @@ BTree::NodeMark *
 BTree::getMarkFromNode(Slice node)
 { return reinterpret_cast<NodeMark*>(node.content()); }
 
-Byte *
+Slice::SliceIterator
 BTree::getFirstEntryInNode(Block &node)
-{ return node.content() + sizeof(NodeMark); }
+{ return node.begin() + sizeof(NodeMark); }
 
-Byte *
+Slice::SliceIterator
 BTree::getLastEntryInNode(Block &node)
 { return prevEntryInNode(getLimitEntryInNode(node)); }
 
-Byte *
+Slice::SliceIterator
 BTree::getLimitEntryInNode(Block &node)
 { return getFirstEntryInNode(node) + getHeaderFromNode(node)->entry_count * nodeEntrySize(); }
 
-Byte *
-BTree::nextEntryInNode(Byte *entry)
+Slice::SliceIterator
+BTree::nextEntryInNode(Slice::SliceIterator entry)
 { return entry + nodeEntrySize(); }
 
-Byte *
-BTree::prevEntryInNode(Byte *entry)
+Slice::SliceIterator
+BTree::prevEntryInNode(Slice::SliceIterator entry)
 { return entry - nodeEntrySize(); }
 
 BlockIndex *
-BTree::getIndexFromNodeEntry(Byte *entry)
-{ return reinterpret_cast<BlockIndex*>(entry + _key_size); }
+BTree::getIndexFromNodeEntry(Slice::SliceIterator entry)
+{ return reinterpret_cast<BlockIndex*>((entry + _key_size).start()); }
 
 BTree::LeafMark *
 BTree::getMarkFromLeaf(Slice leaf)
 { return reinterpret_cast<LeafMark*>(leaf.content()); }
 
-Byte *
+Slice::SliceIterator
 BTree::getFirstEntryInLeaf(Block &leaf)
-{ return leaf.content() + sizeof(LeafMark); }
+{ return leaf.begin() + sizeof(LeafMark); }
 
-Byte *
+Slice::SliceIterator
 BTree::getLimitEntryInLeaf(Block &leaf)
 { return getFirstEntryInLeaf(leaf) + getHeaderFromNode(leaf)->entry_count * leafEntrySize(); }
 
-Byte *
-BTree::nextEntryInLeaf(Byte *entry)
+Slice::SliceIterator
+BTree::nextEntryInLeaf(Slice::SliceIterator entry)
 { return entry + leafEntrySize(); }
 
-Byte *
-BTree::prevEntryInLeaf(Byte *entry)
+Slice::SliceIterator
+BTree::prevEntryInLeaf(Slice::SliceIterator entry)
 { return entry - leafEntrySize(); }
 
 BTree::NodeHeader *
@@ -336,11 +336,11 @@ BTree::getLimitEntryOffset(Block &leaf)
     return getFirstEntryOffset() + header->entry_count * leafEntrySize();
 }
 
-Byte *
+Slice::SliceIterator
 BTree::getEntryInLeafByIndex(Block &leaf, Length index)
 { return getFirstEntryInLeaf(leaf) + index * leafEntrySize(); }
 
-Byte *
+Slice::SliceIterator
 BTree::getEntryInNodeByIndex(Block &node, Length index)
 { return getFirstEntryInNode(node) + index * nodeEntrySize(); }
 
@@ -349,10 +349,10 @@ BTree::findInNode(Block &node, Key key)
 {
     assert(getHeaderFromNode(node)->prev ^ getMarkFromNode(node)->before);
 
-    auto *entry_limit = getLimitEntryInNode(node);
-    auto *entry = getFirstEntryInNode(node);
+    auto entry_limit = getLimitEntryInNode(node);
+    auto entry = getFirstEntryInNode(node);
 
-    if (_less(getPointerOfKey(key), getKeyFromNodeEntry(entry))) {
+    if (_less(getPointerOfKey(key), getKeyFromNodeEntry(entry).start())) {
         return getMarkFromNode(node)->before;
     }
 
@@ -373,8 +373,8 @@ BTree::findInNode(Block &node, Key key)
 BTree::Iterator
 BTree::findInLeaf(Block &leaf, Key key)
 {
-    auto *entry_limit = getLimitEntryInLeaf(leaf);
-    auto *entry = getFirstEntryInLeaf(leaf);
+    auto entry_limit = getLimitEntryInLeaf(leaf);
+    auto entry = getFirstEntryInLeaf(leaf);
 
     auto iter = std::lower_bound(
             LeafEntryIterator(entry, this),
@@ -393,7 +393,7 @@ BTree::findInLeaf(Block &leaf, Key key)
             );
     }
     else {
-        return Iterator(this, leaf, iter.entry - leaf.content());
+        return Iterator(this, leaf, iter.entry - leaf.begin());
     }
 }
 
@@ -403,6 +403,8 @@ BTree::keepTracingToLeaf(Key key, BlockStack &path)
     path.push(_root);
 
     auto *header = getHeaderFromNode(path.top());
+
+    assert(path.size());    // make path.size() contained in object
 
     while (!header->node_is_leaf) {
         path.push(_accesser->aquire(findInNode(path.top(), key)));
@@ -488,29 +490,32 @@ BTree::Iterator
 BTree::insertInLeaf(Block &leaf, Key key)
 {
     auto *header = getHeaderFromNode(leaf);
-    auto *current = getLimitEntryInLeaf(leaf);
-    auto *insert_point = current;
-    auto *entry_start = getFirstEntryInLeaf(leaf);
+    auto current = getLimitEntryInLeaf(leaf);
+    auto insert_point = current;
+    auto entry_start = getFirstEntryInLeaf(leaf);
 
-    for (
-            current = prevEntryInLeaf(current); 
-            current >= entry_start;
-                insert_point = current,
-                current = prevEntryInLeaf(current)
-    ) {
-        if (_less(getKeyFromLeafEntry(current), getPointerOfKey(key))) {
-            break;
+    if (current > entry_start) {
+        for (
+                current = prevEntryInLeaf(current); 
+                current >= entry_start;
+                    insert_point = current,
+                    current = prevEntryInLeaf(current)
+        ) {
+            if (_less(getKeyFromLeafEntry(current).start(), getPointerOfKey(key))) {
+                break;
+            }
+        }
+
+        if (
+                current >= entry_start && 
+                _equal(getKeyFromLeafEntry(current).start(), getPointerOfKey(key))
+        ) {
+            return Iterator(this, leaf, current - leaf.begin());
         }
     }
-
-    if (
-            current >= entry_start && 
-            _equal(getKeyFromLeafEntry(current), getPointerOfKey(key))
-    ) {
-        return Iterator(this, leaf, current - leaf.content());
+    else {
+        insert_point = current;
     }
-
-    ++header->entry_count;
 
     std::copy_backward(
             insert_point,
@@ -518,22 +523,24 @@ BTree::insertInLeaf(Block &leaf, Key key)
             nextEntryInLeaf(getLimitEntryInLeaf(leaf))
         );
 
+    ++header->entry_count;
+
     std::copy(
             getPointerOfKey(key),
             getPointerOfKey(key) + _key_size,
             getKeyFromLeafEntry(insert_point)
         );
 
-    return Iterator(this, leaf, insert_point - leaf.content());
+    return Iterator(this, leaf, insert_point - leaf.begin());
 }
 
 void
 BTree::insertInNode(Block &node, Key key, BlockIndex index)
 {
     auto *header = getHeaderFromNode(node);
-    auto *current = getLimitEntryInNode(node);
-    auto *insert_point = current;
-    auto *entry_start = getFirstEntryInNode(node);
+    auto current = getLimitEntryInNode(node);
+    auto insert_point = current;
+    auto entry_start = getFirstEntryInNode(node);
 
     for (
             current = prevEntryInNode(current);
@@ -541,7 +548,7 @@ BTree::insertInNode(Block &node, Key key, BlockIndex index)
                 insert_point = current,
                 current = prevEntryInNode(current)
     ) {
-        if (_less(getKeyFromNodeEntry(current), getPointerOfKey(key))) {
+        if (_less(getKeyFromNodeEntry(current).start(), getPointerOfKey(key))) {
             break;
         }
     }
@@ -576,7 +583,7 @@ BTree::newRoot(Key split_key, Block &before, Block &after)
 
     mark->before = before.index();
 
-    auto *entry = getFirstEntryInNode(ret);
+    auto entry = getFirstEntryInNode(ret);
 
     std::copy(
             getPointerOfKey(split_key),
@@ -630,19 +637,19 @@ BTree::prevIterator(Iterator iter)
 void
 BTree::eraseInLeaf(Block &leaf, Key key)
 {
-    auto *entry_limit = getLimitEntryInLeaf(leaf);
+    auto entry_limit = getLimitEntryInLeaf(leaf);
     auto entry = getFirstEntryInLeaf(leaf);
 
     for (;
             entry < entry_limit;
             entry = nextEntryInLeaf(entry)
     ) {
-        if (!_less(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
+        if (!_less(getKeyFromLeafEntry(entry).start(), getPointerOfKey(key))) {
             break;
         }
     }
 
-    if (!_equal(getKeyFromLeafEntry(entry), getPointerOfKey(key))) {
+    if (!_equal(getKeyFromLeafEntry(entry).start(), getPointerOfKey(key))) {
         // key not found
         return;
     }
@@ -660,14 +667,14 @@ BTree::eraseInLeaf(Block &leaf, Key key)
 void
 BTree::eraseInNode(Block &node, Key key)
 {
-    auto *entry_limit = getLimitEntryInNode(node);
+    auto entry_limit = getLimitEntryInNode(node);
     auto entry = getFirstEntryInNode(node);
 
     for (;
             entry < entry_limit;
             entry = nextEntryInNode(entry)
     ) {
-        if (!_less(getKeyFromNodeEntry(entry), getPointerOfKey(key))) {
+        if (!_less(getKeyFromNodeEntry(entry).start(), getPointerOfKey(key))) {
             break;
         }
     }
@@ -675,11 +682,11 @@ BTree::eraseInNode(Block &node, Key key)
     auto *header = getHeaderFromNode(node);
 
     assert(
-            _equal(getKeyFromNodeEntry(entry), getPointerOfKey(key)) ||
+            _equal(getKeyFromNodeEntry(entry).start(), getPointerOfKey(key)) ||
             header->prev == 0
         );
 
-    if (!_equal(getKeyFromNodeEntry(entry), getPointerOfKey(key)) && header->prev == 0) {
+    if (!_equal(getKeyFromNodeEntry(entry).start(), getPointerOfKey(key)) && header->prev == 0) {
         // remove before
         assert(entry == getFirstEntryInNode(node));
         getMarkFromNode(node)->before = *getIndexFromNodeEntry(entry);

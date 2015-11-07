@@ -74,7 +74,7 @@ BTree::Iterator
 BTree::upperBound(Key key)
 { 
     auto iter = lowerBound(key);
-    if (_equal(iter.getKey(), getPointerOfKey(key))) {
+    if (_equal(iter.getKey().start(), getPointerOfKey(key))) {
         return nextIterator(lowerBound(key));
     }
     else {
@@ -95,7 +95,7 @@ BTree::insert(Key key)
         Block new_node = splitLeaf(path.top(), split_offset);
 
         Key split_key = makeKey(
-                getKeyFromLeafEntry(getFirstEntryInLeaf(new_node)),
+                getKeyFromLeafEntry(getFirstEntryInLeaf(new_node)).start(),
                 _key_size
             );
 
@@ -118,7 +118,7 @@ BTree::insert(Key key)
             auto split_offset = getHeaderFromNode(path.top())->entry_count / 2;
             new_node = splitNode(path.top(), split_offset);
 
-            if (_less(getPointerOfKey(split_key), getKeyFromNodeEntry(getFirstEntryInNode(new_node)))) {
+            if (_less(getPointerOfKey(split_key), getKeyFromNodeEntry(getFirstEntryInNode(new_node)).start())) {
                 insertInNode(path.top(), split_key, index_to_insert);
             }
             else {
@@ -126,7 +126,7 @@ BTree::insert(Key key)
             }
 
             split_key = makeKey(
-                    getKeyFromNodeEntry(getFirstEntryInNode(new_node)),
+                    getKeyFromNodeEntry(getFirstEntryInNode(new_node)).start(),
                     _key_size
                 );
             path.pop();
@@ -224,13 +224,13 @@ BTree::erase(Key key)
 
     if (header->entry_count) {
         Block &parent = path.top();
-        auto *parent_last_entry = getLastEntryInNode(parent);
-        auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
+        auto parent_last_entry = getLastEntryInNode(parent);
+        auto parent_last_index = getIndexFromNodeEntry(parent_last_entry);
 
         updateKey(
                 path.top(),
                 makeKey(
-                    getKeyFromLeafEntry(getFirstEntryInLeaf(leaf)),
+                    getKeyFromLeafEntry(getFirstEntryInLeaf(leaf)).start(),
                     _key_size
                 ),
                 leaf.index()
@@ -256,7 +256,7 @@ BTree::erase(Key key)
         }
         else {
             removal_key = makeKey(
-                    getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)),
+                    getKeyFromLeafEntry(getFirstEntryInLeaf(next_leaf)).start(),
                     _key_size
                 );
         }
@@ -286,13 +286,13 @@ BTree::erase(Key key)
 
         if (header->entry_count) {
             Block &parent = path.top();
-            auto *parent_last_entry = getLastEntryInNode(parent);
-            auto *parent_last_index = getIndexFromNodeEntry(parent_last_entry);
+            auto parent_last_entry = getLastEntryInNode(parent);
+            auto parent_last_index = getIndexFromNodeEntry(parent_last_entry);
 
             updateKey(
                     parent,
                     makeKey(
-                        getKeyFromNodeEntry(getFirstEntryInNode(node)),
+                        getKeyFromNodeEntry(getFirstEntryInNode(node)).start(),
                         _key_size
                     ), 
                     node.index()
@@ -318,7 +318,7 @@ BTree::erase(Key key)
             }
             else {
                 removal_key = makeKey(
-                        getKeyFromNodeEntry(getFirstEntryInNode(next_node)),
+                        getKeyFromNodeEntry(getFirstEntryInNode(next_node)).start(),
                         _key_size
                     );
             }
