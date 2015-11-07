@@ -207,7 +207,7 @@ BTree::erase(Key key)
 {
     Buffer removal_key_buffer(_key_size);
     Key removal_key(key);
-    if (_key_size >= sizeof(Key::value)) {
+    if (_key_size > sizeof(Key::value)) {
         std::copy(
                 key.pointer,
                 key.pointer + _key_size,

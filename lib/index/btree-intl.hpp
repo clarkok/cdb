@@ -255,7 +255,7 @@ BTree::LeafEntryIterator::operator -= (int offset)
 
 int
 BTree::LeafEntryIterator::operator - (const LeafEntryIterator &b) const
-{ return (entry - b.entry) / owner->nodeEntrySize(); }
+{ return (entry - b.entry) / owner->leafEntrySize(); }
 
 Length
 BTree::maximumEntryPerNode() const

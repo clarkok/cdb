@@ -76,6 +76,7 @@ namespace cdb {
         static std::set<std::string> mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set);
         Schema *buildSchemaFromColumnNames(std::set<std::string> columns_set);
         BlockIndex findIndex(std::string column_name);
+        BlockIndex removeIndex(std::string column_name);
         Schema *buildSchemaForIndex(std::string column_name);
         View::Filter buildFilter(ConditionExpr *condition);
         inline Length calculateThreshold() const;
@@ -104,6 +105,17 @@ namespace cdb {
         void reset();
         void init();
 
+        void drop();
+
+        /**
+         * Insert records into this table
+         *
+         * @param schema the schema in rows
+         * @param rows data
+         * @param row_count
+         */
+        void insert(Schema *schema, const std::vector<ConstSlice> &rows);
+
         /**
          * Select on this table
          *
@@ -112,6 +124,11 @@ namespace cdb {
          * @param accesser call on each row
          */
         void select(Schema *schema, ConditionExpr *condition, Accesser accesser);
+
+        /**
+         * Delete rows
+         */
+        void erase(ConditionExpr *condition);
 
         /**
          * Create an index on this table
@@ -127,15 +144,6 @@ namespace cdb {
          * @param column_name the name of column to drop index on
          */
         void dropIndex(std::string column_name);
-
-        /**
-         * Insert records into this table
-         *
-         * @param schema the schema in rows
-         * @param rows data
-         * @param row_count
-         */
-        void insert(Schema *schema, const std::vector<ConstSlice> &rows);
 
         class RecordBuilder;
         RecordBuilder *getRecordBuilder(std::vector<std::string> fields);
