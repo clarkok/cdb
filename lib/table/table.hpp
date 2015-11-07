@@ -102,6 +102,7 @@ namespace cdb {
         ConditionExpr *optimizeCondition(ConditionExpr *);
 
         void reset();
+        void init();
 
         /**
          * Select on this table

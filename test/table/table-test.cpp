@@ -39,7 +39,7 @@ protected:
 
         auto root = allocator->allocateBlock();
         uut.reset(Table::Factory(accesser.get(), schema->copy(), root).release());
-        uut->reset();
+        uut->init();
     }
 };
 
@@ -438,14 +438,41 @@ TEST_F(TableTest, LargeNumber)
     ));
 
     for (int i = 0; i < LARGE_NUMBER; ++i) {
-        builder->reset()
-                .addRow()
+        builder->addRow()
                 .addInteger(i)
                 .addChar("name" + std::to_string(i))
                 .addFloat(i)
                 .addInteger(i & 1);
-        auto row = builder->getRows();
-        ASSERT_EQ(builder->cbegin()->content(), row.begin()->content());
-        uut->insert(builder->getSchema(), row);
     }
+
+    auto row = builder->getRows();
+    ASSERT_EQ(builder->cbegin()->content(), row.begin()->content());
+    uut->insert(builder->getSchema(), row);
+
+    std::unique_ptr<Schema> select_schema(uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "gpa", "gender"}));
+
+    int count = 0;
+    uut->select(
+            select_schema.get(),
+            nullptr,
+            [&](ConstSlice row)
+            {
+                auto gpa_col = select_schema->getColumnByName("gpa");
+                EXPECT_EQ(
+                        static_cast<float>(count),
+                        *reinterpret_cast<const float*>(gpa_col.getValue(row).content())
+                );
+
+                auto gender_col = select_schema->getColumnByName("gender");
+                auto gender = Convert::toString(gender_col.getType(), gender_col.getValue(row));
+                EXPECT_EQ(std::to_string(count & 1), gender);
+
+                ++count;
+            }
+    );
+    EXPECT_EQ(LARGE_NUMBER, count);
+}
+
+TEST_F(TableTest, LargeIndex)
+{
 }

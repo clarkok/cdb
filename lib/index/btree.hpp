@@ -653,6 +653,11 @@ namespace cdb {
         void reset();
 
         /**
+         * Force initialize the whole tree
+         */
+        void init();
+
+        /**
          * Remove the whole tree
          */
         void clean();

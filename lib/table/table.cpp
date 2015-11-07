@@ -561,7 +561,7 @@ Table::createIndex(std::string column_name)
         index_tree->insert(index_tree->makeKey(slice.content(), slice.length()));
     }
 
-    _indices.emplace_back(column_name, index_root);
+    _indices.emplace_back(column_name, index_tree->getRootIndex());
     return index_root;
 }
 
@@ -743,7 +743,12 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
         }
     }
 
+    for (unsigned int i = 0; i < index_trees.size(); ++i) {
+        _indices[i].root = index_trees[i]->getRootIndex();
+    }
+
     _count += rows.size();
+    _root = data_tree->getRootIndex();
 }
 
 Table::RecordBuilder *
@@ -773,5 +778,25 @@ Table::reset()
                     )
                 );
         index_btree->reset();
+    }
+}
+
+void
+Table::init()
+{
+    std::unique_ptr<BTree> data_btree(buildDataBTree());
+    data_btree->init();
+    _root = data_btree->getRootIndex();
+
+    for (auto &index : _indices) {
+        std::unique_ptr<Schema> schema(buildSchemaForIndex(index.column_name));
+        std::unique_ptr<BTree> index_btree(
+                buildIndexBTree(
+                    index.root,
+                    schema.get()
+                    )
+                );
+        index_btree->init();
+        index.root = index_btree->getRootIndex();
     }
 }
