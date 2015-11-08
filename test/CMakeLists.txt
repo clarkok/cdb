@@ -13,7 +13,7 @@ find_package(Threads REQUIRED)
 add_subdirectory(utils)
 add_subdirectory(driver)
 add_subdirectory(index)
-add_subdirectory(parser)
+# add_subdirectory(parser)
 add_subdirectory(table)
 
 find_library(profiler profiler /usr/lib)
@@ -22,7 +22,7 @@ add_executable(test-main test-main.cpp test-inc.hpp
         ${UTILS_TEST_SRCS}
         ${DRIVER_TEST_SRCS}
         ${INDEX_TEST_SRCS}
-        ${PARSER_TEST_SRCS}
+#         ${PARSER_TEST_SRCS}
         ${TABLE_TEST_SRCS}
         )
 

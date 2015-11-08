@@ -70,6 +70,27 @@ Schema::copy() const
     return ret;
 }
 
+void
+Schema::serialize(Slice slice) const
+{
+    auto iter = slice.begin();
+    for (auto &field : _fields) {
+        std::copy(
+                field.name.cbegin(),
+                field.name.end(),
+                iter
+            );
+        iter += field.name.length();
+        *iter++ = '\0';
+        *iter++ = static_cast<Byte>(field.type);
+        *reinterpret_cast<std::size_t*>(iter.start()) = field.length;
+        iter += sizeof(field.length);
+        *reinterpret_cast<int*>(iter.start()) = field.autoinc_value;
+        iter += sizeof(field.autoinc_value);
+    }
+    *iter = '\0';
+}
+
 Schema::Factory::Factory()
 { reset(); }
 
@@ -135,3 +156,26 @@ Schema::Factory::addField(Field::Type type, std::string name, std::size_t length
             0
     );
 }
+
+Schema *
+Schema::Factory::parse(ConstSlice slice)
+{
+    auto iter = slice.cbegin();
+    Schema::Factory builder;
+
+    while (*iter) {
+        std::string name(reinterpret_cast<const char*>(iter.start()));
+        iter += name.length() + 1;
+        auto type = static_cast<Field::Type>(*iter++);
+        auto length = *reinterpret_cast<const std::size_t*>(iter.start());
+        iter += sizeof(length);
+        auto autoinc_value = *reinterpret_cast<const int*>(iter.start());
+        iter += sizeof(autoinc_value);
+
+        builder.addField(type, name, length);
+        // TODO set auto inc value
+    }
+
+    return builder.release();
+}
+

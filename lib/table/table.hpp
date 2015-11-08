@@ -54,9 +54,10 @@ namespace cdb {
         {
             std::string column_name;
             BlockIndex root;
+            std::string name;
 
-            Index(std::string column_name, BlockIndex root)
-                    : column_name(column_name), root(root)
+            Index(std::string column_name, BlockIndex root, std::string name)
+                    : column_name(column_name), root(root), name(name)
             { }
         };
 
@@ -65,18 +66,20 @@ namespace cdb {
         class FilterVisitor;
 
         DriverAccesser *_accesser;
+        std::string _name;
         std::unique_ptr<Schema> _schema;
         BlockIndex _root;
         std::vector<Index> _indices;
         Length _count;
 
-        Table(DriverAccesser *accesser, Schema *schema, BlockIndex root);
+        Table(DriverAccesser *accesser, std::string name, Schema *schema, BlockIndex root, Length count);
 
         static std::set<std::string> getColumnNames(ConditionExpr *expr);
         static std::set<std::string> mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set);
         Schema *buildSchemaFromColumnNames(std::set<std::string> columns_set);
         BlockIndex findIndex(std::string column_name);
         BlockIndex removeIndex(std::string column_name);
+        Index findIndexByName(std::string name);
         Schema *buildSchemaForIndex(std::string column_name);
         View::Filter buildFilter(ConditionExpr *condition);
         inline Length calculateThreshold() const;
@@ -90,7 +93,6 @@ namespace cdb {
         static const int MAX_TABLE_NAME_LENGTH = 32;
 
         typedef std::function<void(ConstSlice)> Accesser;
-        typedef std::function<void(Slice)> Operator;
 
         static Schema *getSchemaForRootTable();
 
@@ -99,6 +101,10 @@ namespace cdb {
         inline Length
         getCount() const
         { return _count; }
+
+        inline std::string
+        getName() const
+        { return _name; }
 
         ConditionExpr *optimizeCondition(ConditionExpr *);
 
@@ -136,14 +142,14 @@ namespace cdb {
          * @param column_name the name of column to create index on
          * @return root block of the new Index
          */
-        BlockIndex createIndex(std::string column_name);
+        BlockIndex createIndex(std::string column_name, std::string name);
 
         /**
          * Drop an index on this table
          *
-         * @param column_name the name of column to drop index on
+         * @param the name of column to drop index on
          */
-        void dropIndex(std::string column_name);
+        void dropIndex(std::string name);
 
         class RecordBuilder;
         RecordBuilder *getRecordBuilder(std::vector<std::string> fields);
@@ -154,10 +160,16 @@ namespace cdb {
         public:
             Factory(
                     DriverAccesser *accesser,
+                    std::string name,
                     Schema *schema,
-                    BlockIndex root
+                    BlockIndex root,
+                    Length count = 0
             )
-                    : _table(new Table(accesser, schema, root))
+                    : _table(new Table(accesser, name, schema, root, count))
+            { }
+
+            Factory(Factory &&f)
+                : _table(std::move(f._table))
             { }
 
             ~Factory() = default;
@@ -166,9 +178,9 @@ namespace cdb {
             { return _table.release(); }
 
             Factory &
-            addIndex(std::string column_name, BlockIndex root)
+            addIndex(std::string column_name, BlockIndex root, std::string name)
             {
-                _table->_indices.emplace_back(column_name, root);
+                _table->_indices.emplace_back(column_name, root, name);
                 return *this;
             }
         };

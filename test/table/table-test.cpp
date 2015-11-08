@@ -38,7 +38,7 @@ protected:
                 .release());
 
         auto root = allocator->allocateBlock();
-        uut.reset(Table::Factory(accesser.get(), schema->copy(), root).release());
+        uut.reset(Table::Factory(accesser.get(), "test", schema->copy(), root).release());
         uut->init();
     }
 };
@@ -346,7 +346,7 @@ TEST_F(TableTest, index)
     }
 
     uut->insert(builder->getSchema(), builder->getRows());
-    uut->createIndex("gpa");
+    uut->createIndex("gpa", "gpaIdx");
 
     std::unique_ptr<ConditionExpr> condition(
             uut->optimizeCondition(
@@ -549,7 +549,7 @@ TEST_F(TableTest, LargeIndex)
     ASSERT_EQ(builder->cbegin()->content(), row.begin()->content());
     uut->insert(builder->getSchema(), row);
 
-    uut->createIndex("gpa");
+    uut->createIndex("gpa", "gpaIdx");
 
     std::unique_ptr<ConditionExpr> condition(
             uut->optimizeCondition(
@@ -583,7 +583,7 @@ TEST_F(TableTest, LargeIndex)
 
 TEST_F(TableTest, dropIndex)
 {
-    uut->createIndex("gpa");
+    uut->createIndex("gpa", "gpaIdx");
 
     std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
             {
@@ -635,7 +635,7 @@ TEST_F(TableTest, dropIndex)
         EXPECT_EQ(7, count);
     }
 
-    uut->dropIndex("gpa");
+    uut->dropIndex("gpaIdx");
 
     for (int i = 0; i < SMALL_NUMBER; ++i) {
         int count = 0;
@@ -659,7 +659,7 @@ TEST_F(TableTest, dropIndex)
 
 TEST_F(TableTest, removeAll)
 {
-    uut->createIndex("gpa");
+    uut->createIndex("gpa", "gpaIdx");
 
     std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
             {
@@ -774,7 +774,7 @@ TEST_F(TableTest, removeAll)
 
 TEST_F(TableTest, removeWithCondition)
 {
-    uut->createIndex("gpa");
+    uut->createIndex("gpa", "gpaIdx");
 
     std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
             {
@@ -862,4 +862,42 @@ TEST_F(TableTest, removeWithCondition)
             }
     );
     EXPECT_EQ(LARGE_NUMBER, count);
+}
+
+TEST_F(TableTest, drop)
+{
+    uut->drop();
+
+    uut->init();
+    uut->createIndex("gpa", "gpaIdx");
+
+    std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
+            {
+                    "id",
+                    "name",
+                    "gpa",
+                    "gender",
+            }
+    ));
+
+    builder->addRow()
+            .addValue("0")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            .addRow()
+            .addValue("1")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            .addRow()
+            .addValue("2")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            ;
+
+    uut->insert(builder->getSchema(), builder->getRows());
+
+    uut->drop();
 }

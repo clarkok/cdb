@@ -410,6 +410,17 @@ Table::removeIndex(std::string column_name)
     return 0;
 }
 
+Table::Index
+Table::findIndexByName(std::string name)
+{
+    for (auto &index : _indices) {
+        if (index.name == name) {
+            return index;
+        }
+    }
+    throw TableIndexNotFoundException(name);
+}
+
 Schema *
 Table::getSchemaForRootTable()
 {
@@ -419,13 +430,14 @@ Table::getSchemaForRootTable()
     factory.addCharField("name", MAX_TABLE_NAME_LENGTH);
     factory.addIntegerField("data");
     factory.addIntegerField("count");
+    factory.addCharField("index_for", MAX_TABLE_NAME_LENGTH);
 
-    factory.addTextField("create_sql");
+    factory.addCharField("create_sql", 256);
     return factory.release();
 }
 
-Table::Table(DriverAccesser *accesser, Schema *schema, BlockIndex root)
-        : _accesser(accesser), _schema(schema), _root(root), _count(0)
+Table::Table(DriverAccesser *accesser, std::string name, Schema *schema, BlockIndex root, Length count)
+        : _accesser(accesser), _name(name), _schema(schema), _root(root), _count(count)
 { }
 
 void
@@ -652,7 +664,7 @@ Table::mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set)
 }
 
 BlockIndex
-Table::createIndex(std::string column_name)
+Table::createIndex(std::string column_name, std::string name)
 {
     std::unique_ptr<Schema> index_schema(buildSchemaForIndex(column_name));
     BlockIndex index_root = _accesser->allocateBlock();
@@ -668,19 +680,20 @@ Table::createIndex(std::string column_name)
         index_tree->insert(index_tree->makeKey(slice.content(), slice.length()));
     }
 
-    _indices.emplace_back(column_name, index_tree->getRootIndex());
+    _indices.emplace_back(column_name, index_tree->getRootIndex(), name);
     return index_root;
 }
 
 void
-Table::dropIndex(std::string column_name)
+Table::dropIndex(std::string name)
 {
-    auto index_root = removeIndex(column_name);
+    auto index = findIndexByName(name);
+    auto index_root = index.root;
     if (index_root) {
         std::unique_ptr<BTree> index_tree(
                 buildIndexBTree(
                         index_root,
-                        buildSchemaForIndex(column_name)
+                        buildSchemaForIndex(index.column_name)
                 )
         );
 

@@ -165,6 +165,8 @@ namespace cdb {
          */
         Schema *copy() const;
 
+        void serialize(Slice slice) const;
+
         inline decltype(_fields.cbegin())
         begin() const
         { return _fields.cbegin(); }
@@ -188,6 +190,8 @@ namespace cdb {
             Factory &addIntegerField(std::string name);
             Factory &addTextField(std::string name);
             Factory &setPrimary(std::string name);
+
+            static Schema *parse(ConstSlice slice);
         };
     };
 }
