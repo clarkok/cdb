@@ -45,9 +45,14 @@ namespace cdb {
         void open();
         void close();
     public:
-        static constexpr const char MAGIC[8] = "--CDB--";
+        static const char MAGIC[8];
 
-        ~Database();
+        ~Database()
+        { 
+            if (_root_table) {
+                close();
+            }
+        }
 
         void init();
         void reset();
@@ -55,9 +60,12 @@ namespace cdb {
         Table *getTableByName(std::string name);
         Table *createTable(std::string name, Schema *schema);
         void dropTable(std::string name);
+        std::string indexFor(std::string name);
 
         static Database *Factory(std::string path);
     };
+
+    Database *getGlobalDatabase();
 }
 
 #endif // _DB_DATABASE_DATABASE_H_

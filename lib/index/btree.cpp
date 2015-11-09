@@ -47,6 +47,9 @@ BTree::reset()
 void
 BTree::init()
 {
+    if (_root.index()) {
+        _accesser->freeBlock(_root.index());
+    }
     _root = _accesser->aquire(_accesser->allocateBlock());
     auto *header = getHeaderFromNode(_root);
     *header = {

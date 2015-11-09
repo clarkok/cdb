@@ -450,9 +450,23 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
         schema = internal_schema.get();
     }
     else {
-        std::set<std::string> columns_set = getColumnNames(condition);
-        mergeColumnNamesInSchema(schema, columns_set);
-        internal_schema.reset(buildSchemaFromColumnNames(columns_set));
+        try {
+            auto primary_name = _schema->getPrimaryColumn().getField()->name;
+            schema->getColumnByName(primary_name);
+        }
+        catch (SchemaColumnNotFoundException)
+        {
+            throw TablePrimaryKeyNotSelectedException();
+        }
+
+        std::set<std::string> column_set = getColumnNames(condition);
+        mergeColumnNamesInSchema(schema, column_set);
+        std::vector<std::string> column_list;
+
+        for (auto &column : column_set) {
+            column_list.push_back(column);
+        }
+        internal_schema.reset(buildSchemaFromColumnNames(column_list));
     }
 
     auto primary_col = _schema->getPrimaryColumn();
@@ -617,32 +631,6 @@ Length
 Table::calculateThreshold() const
 { return _count / calculateRecordPerBlock(); }
 
-Schema *
-Table::buildSchemaFromColumnNames(std::set<std::string> columns_set)
-{
-    auto primary_col = _schema->getPrimaryColumn();
-    columns_set.insert(primary_col.getField()->name);
-    Schema::Factory builder;
-    for (auto &name : columns_set) {
-        auto original_column = _schema->getColumnByName(name);
-
-        switch (original_column.getType()) {
-            case Schema::Field::Type::INTEGER:
-                builder.addIntegerField(name);
-                break;
-            case Schema::Field::Type::FLOAT:
-                builder.addFloatField(name);
-                break;
-            case Schema::Field::Type::CHAR:
-                builder.addCharField(name, original_column.getField()->length);
-                break;
-            default:
-                throw TableTypeNotSupportedException();
-        }
-    }
-    return builder.release();
-}
-
 std::set<std::string>
 Table::getColumnNames(ConditionExpr *expr)
 {
@@ -766,6 +754,10 @@ Table::buildSchemaFromColumnNames(std::vector<std::string> column_names)
                 throw TableTypeNotSupportedException();
         }
     }
+
+    auto primary_name = _schema->getPrimaryColumn().getField()->name;
+    builder.setPrimary(primary_name);
+
     return builder.release();
 }
 
@@ -786,7 +778,6 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
 
     decltype(primary_col) remote_primary;
 
-    assert(!use_auto_increment);
     if (!use_auto_increment) {
         remote_primary = schema->getPrimaryColumn();
     }
@@ -876,6 +867,10 @@ Table::RecordBuilder *
 Table::getRecordBuilder(std::vector<std::string> fields)
 { return new RecordBuilder(buildSchemaFromColumnNames(fields)); }
 
+Table::RecordBuilder *
+Table::getRecordBuilder()
+{ return new RecordBuilder(getSchema()->copy()); }
+
 ConditionExpr *
 Table::optimizeCondition(ConditionExpr *expr)
 {
@@ -889,6 +884,7 @@ Table::reset()
 {
     std::unique_ptr<BTree> data_btree(buildDataBTree());
     data_btree->reset();
+    _root = data_btree->getRootIndex();
 
     for (auto &index : _indices) {
         std::unique_ptr<Schema> schema(buildSchemaForIndex(index.column_name));

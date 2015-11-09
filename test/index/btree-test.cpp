@@ -530,5 +530,52 @@ TEST_F(BTreeTest, OtherSize)
     }
 }
 
+TEST_F(BTreeTest, OtherLargerSize)
+{
+    uut.reset(new BTree(
+            accesser.get(),
+            [](const Byte *a, const Byte *b) -> bool 
+            {
+                return 
+                    *reinterpret_cast<const int*>(a) <
+                    *reinterpret_cast<const int*>(b);
+            },
+            [](const Byte *a, const Byte *b) -> bool
+            {
+                return 
+                    *reinterpret_cast<const int*>(a) ==
+                    *reinterpret_cast<const int*>(b);
+            },
+            accesser->allocateBlock(),
+            sizeof(int),
+            334
+        ));
+    uut->reset();
+
+    std::ofstream fout(DUMP_PATH);
+
+    for (int i = 0; i <= TEST_NUMBER; ++i) {
+        auto iter = uut->insert(uut->makeKey(&i));
+        std::fill(
+                iter.getValue().begin(),
+                iter.getValue().end(),
+                static_cast<Byte>(i)
+            );
+
+        treeDump(fout);
+    }
+    fout.close();
+
+    auto iter = uut->begin();
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        EXPECT_EQ(i, *reinterpret_cast<const int*>(iter.getKey().start()));
+        EXPECT_EQ(static_cast<Byte>(i), *iter.getValue().cbegin());
+        EXPECT_EQ(static_cast<Byte>(i), *(iter.getValue().cend() - 1));
+        EXPECT_EQ(334, iter.getValue().length());
+
+        iter.next();
+    }
+}
+
 }
 

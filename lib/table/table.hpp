@@ -48,6 +48,13 @@ namespace cdb {
         { return ("Index not found on field `" + field + '`').c_str(); }
     };
 
+    struct TablePrimaryKeyNotSelectedException : public std::exception
+    {
+        virtual const char *
+        what() const noexcept
+        { return "Primary key must be selected when selecting."; }
+    };
+
     class Table
     {
         struct Index
@@ -76,7 +83,6 @@ namespace cdb {
 
         static std::set<std::string> getColumnNames(ConditionExpr *expr);
         static std::set<std::string> mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set);
-        Schema *buildSchemaFromColumnNames(std::set<std::string> columns_set);
         BlockIndex findIndex(std::string column_name);
         BlockIndex removeIndex(std::string column_name);
         Index findIndexByName(std::string name);
@@ -105,6 +111,22 @@ namespace cdb {
         inline std::string
         getName() const
         { return _name; }
+
+        inline BlockIndex
+        getRoot() const
+        { return _root; }
+
+        inline Schema *
+        getSchema() const
+        { return _schema.get(); }
+
+        inline std::vector<Index>::iterator
+        begin()
+        { return _indices.begin(); }
+
+        inline std::vector<Index>::iterator
+        end()
+        { return _indices.end(); }
 
         ConditionExpr *optimizeCondition(ConditionExpr *);
 
@@ -153,6 +175,7 @@ namespace cdb {
 
         class RecordBuilder;
         RecordBuilder *getRecordBuilder(std::vector<std::string> fields);
+        RecordBuilder *getRecordBuilder();
 
         class Factory
         {
@@ -237,6 +260,15 @@ namespace cdb {
                 _buffs.emplace_back(_schema->getRecordSize());
                 _column_index = 0;
 
+                return *this;
+            }
+
+            inline RecordBuilder &
+            addRow(ConstSlice row)
+            {
+                assert(row.length() == _schema->getRecordSize());
+                _buffs.emplace_back(row.cbegin(), row.cend());
+                _column_index = 0;
                 return *this;
             }
 

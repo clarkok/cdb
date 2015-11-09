@@ -35,6 +35,7 @@ protected:
                 .addFloatField("gpa")
                 .addIntegerField("gender")
                 .setPrimary("id")
+                .setAutoincValue(1)
                 .release());
 
         auto root = allocator->allocateBlock();
@@ -900,4 +901,86 @@ TEST_F(TableTest, drop)
     uut->insert(builder->getSchema(), builder->getRows());
 
     uut->drop();
+}
+
+TEST_F(TableTest, OpenAgain)
+{
+    std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
+            {
+                    "id",
+                    "name",
+                    "gpa",
+                    "gender",
+            }
+    ));
+    builder->addRow()
+            .addValue("0")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+        ;
+
+    uut->insert(builder->getSchema(), builder->getRows());
+
+    builder->reset()
+            .addRow()
+            .addValue("1")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+            .addRow()
+            .addValue("2")
+            .addValue("lalala")
+            .addValue("1.0")
+            .addValue("1")
+        ;
+
+    uut->insert(builder->getSchema(), builder->getRows());
+
+    auto root = uut->getRoot();
+
+    uut.reset();
+
+    schema.reset(Schema::Factory()
+            .addIntegerField("id")
+            .addCharField("name", 16)
+            .addFloatField("gpa")
+            .addIntegerField("gender")
+            .setPrimary("id")
+            .setAutoincValue(1)
+            .release());
+
+    uut.reset(Table::Factory(
+                accesser.get(),
+                "test",
+                schema->copy(),
+                root,
+                3
+            ).release());
+
+    int count = 0;
+    uut->select(
+            nullptr,
+            nullptr,
+            [&](ConstSlice row)
+            {
+                auto id_col = schema->getPrimaryColumn();
+                auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                EXPECT_EQ(std::to_string(count ++), id);
+
+                auto name_col = schema->getColumnByName("name");
+                auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
+                EXPECT_EQ("lalala", name);
+
+                auto gpa_col = schema->getColumnByName("gpa");
+                auto gpa = Convert::toString(gpa_col.getType(), gpa_col.getValue(row));
+                auto gpa_float = std::stof(gpa);
+                EXPECT_TRUE(0.00001 > std::fabs(gpa_float - 1.0));
+
+                auto gender_col = schema->getColumnByName("gender");
+                auto gender = Convert::toString(gender_col.getType(), gender_col.getValue(row));
+                EXPECT_EQ("1", gender);
+            }
+    );
+    EXPECT_EQ(3, count);
 }

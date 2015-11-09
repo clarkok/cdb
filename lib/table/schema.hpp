@@ -190,6 +190,7 @@ namespace cdb {
             Factory &addIntegerField(std::string name);
             Factory &addTextField(std::string name);
             Factory &setPrimary(std::string name);
+            Factory &setAutoincValue(int value = 1);
 
             static Schema *parse(ConstSlice slice);
         };
