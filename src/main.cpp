@@ -15,8 +15,8 @@ main(int, char**)
     try {
         while (std::cin) {
             do {
-                std::cin >> line;
-                sql += line + " ";
+                std::getline(std::cin, line);
+                sql += line + "\n";
             } while (std::cin && line.find(";") == std::string::npos);
             parser.exec(sql);
             sql = "";

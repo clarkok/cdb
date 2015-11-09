@@ -450,15 +450,6 @@ Table::select(Schema *schema, ConditionExpr *condition, Accesser accesser)
         schema = internal_schema.get();
     }
     else {
-        try {
-            auto primary_name = _schema->getPrimaryColumn().getField()->name;
-            schema->getColumnByName(primary_name);
-        }
-        catch (SchemaColumnNotFoundException)
-        {
-            throw TablePrimaryKeyNotSelectedException();
-        }
-
         std::set<std::string> column_set = getColumnNames(condition);
         mergeColumnNamesInSchema(schema, column_set);
         std::vector<std::string> column_list;
@@ -756,7 +747,12 @@ Table::buildSchemaFromColumnNames(std::vector<std::string> column_names)
     }
 
     auto primary_name = _schema->getPrimaryColumn().getField()->name;
-    builder.setPrimary(primary_name);
+    try {
+        builder.setPrimary(primary_name);
+    }
+    catch (SchemaColumnNotFoundException) {
+        throw TablePrimaryKeyNotSelectedException();
+    }
 
     return builder.release();
 }
