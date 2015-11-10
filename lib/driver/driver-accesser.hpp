@@ -7,7 +7,13 @@
 #include "driver.hpp"
 #include "block-allocator.hpp"
 
+#include <map>
+#include <iostream>
+
 namespace cdb {
+
+    std::map<BlockIndex, int> &_get_debug_counter();
+
     class DriverAccesser;
 
     class Block
@@ -17,7 +23,10 @@ namespace cdb {
         Slice _slice;
         Block(DriverAccesser *owner, BlockIndex index, Slice slice)
             : _owner(owner), _index(index), _slice(slice)
-        { }
+        {
+            auto count = ++_get_debug_counter()[index];
+            // std::cerr << "ctor " << index << " | " << count << std::endl;
+        }
 
         friend class DriverAccesser;
     public:
@@ -25,7 +34,10 @@ namespace cdb {
 
         Block(Block &&block)
             : _owner(block._owner), _index(block._index), _slice(block._slice)
-        { }
+        {
+            block._index = NON_BLOCK;
+            // std::cerr << "move ctor " << _index << " | " << _get_debug_counter()[_index] << std::endl;
+        }
 
         Block &operator = (Block &&block);
 
