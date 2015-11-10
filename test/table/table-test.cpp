@@ -3,7 +3,7 @@
 #include <cmath>
 #include "lib/driver/basic-driver.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
-#include "lib/driver/basic-accesser.hpp"
+#include "lib/driver/cached-accesser.hpp"
 #include "lib/table/table.hpp"
 
 #include "../test-inc.hpp"
@@ -26,7 +26,7 @@ protected:
     TableTest()
             : driver(new BasicDriver(TEST_PATH)),
               allocator(new BitmapAllocator(driver.get(), 0)),
-              accesser(new BasicAccesser(driver.get(), allocator.get()))
+              accesser(new CachedAccesser(driver.get(), allocator.get()))
     {
         allocator->reset();
         schema.reset(Schema::Factory()

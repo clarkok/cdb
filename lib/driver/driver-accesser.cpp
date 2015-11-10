@@ -18,25 +18,24 @@ Block::operator = (Block &&block)
 {
     assert(this != &block);
 
-    if (_index) {
-        _owner->release(_index);
+    if (_index != std::numeric_limits<BlockIndex>::max()) {
+        _owner->release(_index, _dirty);
     }
 
     _owner = block._owner;
     _index = block._index;
     _slice = block._slice;
-    block._index = 0;
+    _dirty = block._dirty;
+    block._index = std::numeric_limits<BlockIndex>::max();
     return *this;
 }
 
 Block::~Block()
 {
-    if (_index) {
-        _owner->release(_index);
+    if (_index != std::numeric_limits<BlockIndex>::max()) {
+        _owner->release(_index, _dirty);
     }
 }
-
-
 
 DriverAccesser::DriverAccesser(Driver *drv, BlockAllocator *allocator)
     : _drv(drv), _allocator(allocator)

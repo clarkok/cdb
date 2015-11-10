@@ -2,8 +2,8 @@
 #include <lib/index/skip-table.hpp>
 #include <lib/table/skip-view.hpp>
 
-#include "lib/driver/basic-accesser.hpp"
 #include "lib/driver/basic-driver.hpp"
+#include "lib/driver/cached-accesser.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
 #include "../test-inc.hpp"
 #include "lib/table/index-view.hpp"
@@ -28,13 +28,13 @@ protected:
 
     std::unique_ptr<Driver> drv;
     std::unique_ptr<BlockAllocator> allocator;
-    std::unique_ptr<BasicAccesser> accesser;
+    std::unique_ptr<CachedAccesser> accesser;
     std::unique_ptr<IndexView> uut;
 
     IndexViewTest()
             : drv(new BasicDriver(TEST_PATH)),
               allocator(new BitmapAllocator(drv.get(), 0)),
-              accesser(new BasicAccesser(drv.get(), allocator.get()))
+              accesser(new CachedAccesser(drv.get(), allocator.get()))
     {
         allocator->reset();
         BTree *btree = new BTree(

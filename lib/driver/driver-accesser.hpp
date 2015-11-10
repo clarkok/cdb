@@ -3,6 +3,7 @@
 
 #include "lib/utils/slice.hpp"
 
+#include <limits>
 #include "driver.hpp"
 #include "block-allocator.hpp"
 
@@ -15,6 +16,8 @@ namespace cdb {
         DriverAccesser *_owner;
         BlockIndex _index;
         Slice _slice;
+        mutable bool _dirty = false;
+
         Block(DriverAccesser *owner, BlockIndex index, Slice slice)
             : _owner(owner), _index(index), _slice(slice)
         { }
@@ -22,8 +25,8 @@ namespace cdb {
         friend class DriverAccesser;
     public:
         Block(Block &&block)
-            : _owner(block._owner), _index(block._index), _slice(block._slice)
-        { block._index = 0; }
+            : _owner(block._owner), _index(block._index), _slice(block._slice), _dirty(block._dirty)
+        { block._index = std::numeric_limits<BlockIndex>::max(); }
 
         Block &operator = (Block &&block);
 
@@ -37,41 +40,64 @@ namespace cdb {
         index() const
         { return _index; }
 
+        inline ConstSlice
+        constSlice() const
+        { return _slice; }
+
         inline Slice
         slice() const
-        { return _slice; }
+        { 
+            _dirty = true;
+            return _slice;
+        }
 
         inline Length
         length() const
-        { return slice().length(); }
+        { return constSlice().length(); }
 
         inline const Byte*
         content() const
-        { return slice().content(); }
+        { return constSlice().content(); }
 
         inline Byte*
         content()
-        { return slice().content(); }
+        { 
+            _dirty = true;
+            return slice().content();
+        }
 
         inline Slice::ConstSliceIterator
         cbegin() const
-        { return slice().cbegin(); }
+        { return constSlice().cbegin(); }
 
         inline Slice::ConstSliceIterator
         cend() const
-        { return slice().cend(); }
+        { return constSlice().cend(); }
 
         inline Slice::SliceIterator
         begin()
-        { return slice().begin(); }
+        { 
+            _dirty = true;
+            return slice().begin();
+        }
 
         inline Slice::SliceIterator
         end()
-        { return slice().end(); }
+        { 
+            _dirty = true;
+            return slice().end();
+        }
 
         inline
         operator Slice()
-        { return slice(); }
+        { 
+            _dirty = true;
+            return slice();
+        }
+
+        inline
+        operator ConstSlice()
+        { return constSlice(); }
     };
 
     class DriverAccesser
@@ -80,7 +106,7 @@ namespace cdb {
         Driver *_drv;
         BlockAllocator *_allocator;
 
-        virtual void release(BlockIndex block) = 0;
+        virtual void release(BlockIndex block, bool dirty = true) = 0;
         virtual Slice access(BlockIndex index) = 0;
 
         friend class Block;

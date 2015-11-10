@@ -6,6 +6,7 @@
 #include "lib/utils/convert.hpp"
 #include "lib/driver/basic-driver.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
+#include "lib/driver/cached-accesser.hpp"
 #include "lib/driver/basic-accesser.hpp"
 #include "database.hpp"
 
@@ -27,7 +28,7 @@ Database::Factory(std::string path)
 
     db->_driver.reset(new BasicDriver(path.c_str()));
     db->_allocator.reset(new BitmapAllocator(db->_driver.get(), 1));
-    db->_accesser.reset(new BasicAccesser(db->_driver.get(), db->_allocator.get()));
+    db->_accesser.reset(new CachedAccesser(db->_driver.get(), db->_allocator.get()));
 
     db->open();
 

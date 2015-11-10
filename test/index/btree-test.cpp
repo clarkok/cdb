@@ -9,7 +9,7 @@
 #include "../test-inc.hpp"
 #include "lib/driver/bitmap-allocator.hpp"
 #include "lib/driver/basic-driver.hpp"
-#include "lib/driver/basic-accesser.hpp"
+#include "lib/driver/cached-accesser.hpp"
 #include "lib/index/btree.hpp"
 
 #include "lib/index/btree-intl.hpp"
@@ -30,13 +30,13 @@ protected:
 
     std::unique_ptr<Driver> drv;
     std::unique_ptr<BlockAllocator> allocator;
-    std::unique_ptr<BasicAccesser> accesser;
+    std::unique_ptr<CachedAccesser> accesser;
     std::unique_ptr<BTree> uut;
 
     BTreeTest()
         : drv(new BasicDriver(TEST_PATH)),
           allocator(new BitmapAllocator(drv.get(), 0)),
-          accesser(new BasicAccesser(drv.get(), allocator.get()))
+          accesser(new CachedAccesser(drv.get(), allocator.get()))
     {
         allocator->reset();
         uut.reset(new BTree(

@@ -18,7 +18,7 @@ namespace cdb {
         std::map<BlockIndex, BufferWithCount> _buffers;
 
         virtual Slice access(BlockIndex index);
-        virtual void release(BlockIndex index);
+        virtual void release(BlockIndex index, bool);
     public:
         BasicAccesser(Driver *drv, BlockAllocator *allocator);
 

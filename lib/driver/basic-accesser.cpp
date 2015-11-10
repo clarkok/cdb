@@ -25,7 +25,7 @@ BasicAccesser::access(BlockIndex index)
 }
 
 void
-BasicAccesser::release(BlockIndex index)
+BasicAccesser::release(BlockIndex index, bool)
 {
     auto iter = _buffers.find(index);
     if (iter != _buffers.end()) {
