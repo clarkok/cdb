@@ -6,8 +6,6 @@
 #include "driver.hpp"
 #include "block-allocator.hpp"
 
-#include <iostream>
-
 namespace cdb {
 
     class DriverAccesser;
@@ -19,7 +17,7 @@ namespace cdb {
         Slice _slice;
         Block(DriverAccesser *owner, BlockIndex index, Slice slice)
             : _owner(owner), _index(index), _slice(slice)
-        { std::cerr << "ctor " << index << std::endl; }
+        { }
 
         friend class DriverAccesser;
     public:
@@ -29,7 +27,7 @@ namespace cdb {
 
         Block &operator = (Block &&block);
 
-        // copying means acquire again
+        // copying means aquire again
         Block(const Block &block);
         Block &operator = (const Block &block);
 

@@ -11,7 +11,6 @@ using namespace cdb;
 
 static const char TEST_PATH[] = TMP_PATH_PREFIX "/table-test.tmp";
 static const int SMALL_NUMBER = 10;
-static const int LARGE_NUMBER = 10000;
 
 class TableTest : public ::testing::Test
 {
@@ -436,46 +435,4 @@ TEST_F(TableTest, index)
             }
     );
     EXPECT_EQ(1, count);
-}
-
-TEST_F(TableTest, LargeTest)
-{
-    std::unique_ptr<Table::RecordBuilder> builder(uut->getRecordBuilder(
-            {
-                    "id",
-                    "name",
-                    "gpa",
-                    "gender",
-            }
-    ));
-
-    builder->reset();
-    for (int i = 0; i < LARGE_NUMBER; ++i) {
-        builder->addRow()
-                .addInteger(i)
-                .addChar("name" + std::to_string(i))
-                .addInteger(i)
-                .addInteger(i & 1);
-    }
-
-    uut->insert(builder->getSchema(), builder->getRows());
-
-    int count = 0;
-    uut->select(uut->buildSchemaFromColumnNames(std::vector<std::string>{"id", "name"}),
-                nullptr,
-                [&](ConstSlice row)
-                {
-                    auto id_col = schema->getColumnByName("id");
-                    auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
-                    EXPECT_EQ(std::to_string(count), id);
-
-                    auto name_col = schema->getColumnByName("name");
-                    auto name = Convert::toString(name_col.getType(), name_col.getValue(row));
-                    EXPECT_EQ("name" + std::to_string(count), name);
-
-                    ++count;
-                }
-    );
-    EXPECT_EQ(LARGE_NUMBER, count);
-
 }

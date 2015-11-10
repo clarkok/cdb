@@ -675,7 +675,6 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
 
     Buffer key_buff(primary_col.getField()->length);
     for (auto &row : rows) {
-        assert(row.length() == schema->getRecordSize());
         if (use_auto_increment) {
             int autoinc_value = primary_col.getField()->autoIncrement();
             std::copy(
@@ -686,17 +685,13 @@ Table::insert(Schema *schema, const std::vector<ConstSlice> &rows)
         }
         auto iter = data_tree->insert(data_tree->makeKey(
                 key_buff.content(),
-                key_buff.length()
-        ));
-        assert(iter.getValue().length() >= _schema->getRecordSize());
+                key_buff.length())
+        );
         for (unsigned int i = 0; i < map_table.size(); ++i) {
             auto remote_col = _schema->getColumnById(map_table[i]);
             auto original_col = schema->getColumnById(i);
 
             auto original_slice = original_col.getValue(row);
-            assert(remote_col.getValue(iter.getValue()).begin() >= iter.getValue().begin());
-            assert(remote_col.getValue(iter.getValue()).end() <= iter.getValue().end());
-            assert(remote_col.getValue(iter.getValue()).begin() + original_slice.length() <= iter.getValue().end());
             std::copy(
                     original_slice.cbegin(),
                     original_slice.cend(),
