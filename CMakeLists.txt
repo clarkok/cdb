@@ -43,4 +43,3 @@ endif ()
 
 add_subdirectory (lib)
 add_subdirectory (src)
-add_subdirectory (third-party/parser)
