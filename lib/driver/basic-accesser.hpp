@@ -13,10 +13,6 @@ namespace cdb {
         {
             int count;
             Buffer buffer;
-
-            BufferWithCount(int count, const Buffer &buffer)
-                : count(count), buffer(buffer)
-            { }
         };
 
         std::map<BlockIndex, BufferWithCount> _buffers;

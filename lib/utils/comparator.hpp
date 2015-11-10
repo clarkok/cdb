@@ -15,7 +15,7 @@ namespace cdb {
     struct ComparatorUnknownTypeException : public std::exception
     {
         virtual const char *
-        what() const noexcept
+        what() const _GLIBCXX_NOEXCEPT
         { return "Unknown type when get Comparator"; }
     };
 

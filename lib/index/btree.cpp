@@ -113,7 +113,7 @@ BTree::insert(Key key)
         while (!path.empty() && 
                 getHeaderFromNode(path.top())->entry_count >= maximumEntryPerNode()) {
 
-            Block node_to_insert(std::move(new_node));
+            Block node_to_insert = std::move(new_node);
             auto index_to_insert = node_to_insert.index();
             auto split_offset = getHeaderFromNode(path.top())->entry_count / 2;
             new_node = splitNode(path.top(), split_offset);

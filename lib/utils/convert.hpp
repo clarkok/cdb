@@ -17,7 +17,7 @@ namespace cdb {
             { }
 
             virtual const char *
-            what() const noexcept
+            what() const _GLIBCXX_NOEXCEPT
             { return ("Cannot convert " + literal).c_str(); }
         };
 

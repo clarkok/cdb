@@ -4,7 +4,7 @@
 #ifdef _MSC_VER
     #define TMP_PATH_PREFIX "./"
 #elif defined __APPLE__
-    #define TMP_PATH_PREFIX "/tmp/"
+    #define TMP_PATH_PREFIX "./"
 #else
     #define TMP_PATH_PREFIX "/tmp/"
 #endif

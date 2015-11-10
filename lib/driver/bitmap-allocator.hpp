@@ -165,12 +165,14 @@ namespace cdb {
          * @param bitmap the bitmap to operate
          * @param length the length of blocks to allocate
          * @param section_hint hint offset in this section
-         * @return result of allocation, MAX if failed
+         * @param result [out] the result
+         * @return true if succeed, otherwise false
          */
-        inline BlockIndex allocateBlocksInSection(
+        inline bool allocateBlocksInSection(
                 Bitmap &bitmap,
                 Length length,
-                BlockIndex section_hint
+                BlockIndex section_hint,
+                BlockIndex &result
             );
     public:
         /**

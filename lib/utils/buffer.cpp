@@ -46,6 +46,10 @@ Buffer::Buffer(const Byte* cbegin, const Byte* cend)
     : Buffer(cend - cbegin)
 { std::copy(cbegin, cend, begin()); }
 
+Buffer::Buffer(Buffer &&buffer)
+    : Buffer(std::move(buffer.pimpl_))
+{ }
+
 Buffer::Buffer(std::shared_ptr<BufferImpl> &&pimpl)
     : pimpl_(std::move(pimpl)),
       content_(pimpl_->content),

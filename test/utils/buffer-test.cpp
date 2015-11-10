@@ -68,31 +68,3 @@ TEST(BufferTest, CopyOnWrite)
     EXPECT_EQ('e', uut2.content()[1]);
     EXPECT_EQ('l', uut2.content()[2]);
 }
-
-TEST(BufferTest, Copy)
-{
-    Buffer uut(TEST_LENGTH);
-    
-    for (int i = 0; i < TEST_LENGTH; ++i) {
-        Buffer uut1(uut);
-        *reinterpret_cast<int*>(uut1.content()) = i;
-        uut = uut1;
-        EXPECT_EQ(i, *reinterpret_cast<const int*>(uut.content()));
-    }
-}
-
-TEST(BufferTest, Assign)
-{
-    Buffer uut(TEST_LENGTH);
-    Buffer uut1(TEST_LENGTH);
-    
-    for (int i = 0; i < TEST_LENGTH; ++i) {
-        uut1 = uut;
-        if (i) {
-            EXPECT_EQ(i - 1, *reinterpret_cast<int *>(uut1.content()));
-        }
-        *reinterpret_cast<int *>(uut1.content()) = i;
-        uut = uut1;
-        EXPECT_EQ(i, *reinterpret_cast<int *>(uut.content()));
-    }
-}

@@ -1,42 +1,33 @@
 #include <cassert>
 
 #include "bitmap-allocator.hpp"
-#include <iostream>
 
 using namespace cdb;
 
 using cdb::Length;
 using cdb::BlockIndex;
 
-#define cdb_count_leading_zero_32(x) (__count_leading_zero_32_helper(x))
-static inline int __count_leading_zero_32_helper(std::uint32_t value) {
-    std::uint32_t index = 1 << 31;
-    int ret = 0;
-    while (index && !(index & value)) {
-        ret ++;
-        index >>= 1;
+#if defined __GNUC__
+    #define cdb_count_leading_zero_32(x) (x ? __builtin_clz(x) : 32)
+#elif defined __clang__
+    #define cdb_count_leading_zero_32(x) (x ? __builtin_clz(x) : 32)
+#elif defined _MSC_VER
+    #include <intrin.h>
+    #pragma intrinsic(_BitScanReverse)
+
+    #define cdb_count_leading_zero_32(x) \
+        __count_leading_zero_32_helper(static_cast<std::uint32_t>(x))
+
+    static inline int __count_leading_zero_32_helper(std::uint32_t value) {
+        unsigned long index;
+        if (_BitScanReverse(&index, value)) {
+            return index;
+        }
+        else {
+            return 32;
+        }
     }
-    return ret;
-}
-// #elif defined __GNUC__
-// #define cdb_count_leading_zero_32(x) (x ? __builtin_clz(x) : 32)
-// #elif defined _MSC_VER
-// #include <intrin.h>
-// #pragma intrinsic(_BitScanReverse)
-// 
-// #define cdb_count_leading_zero_32(x) \
-//     __count_leading_zero_32_helper(static_cast<std::uint32_t>(x))
-// 
-// static inline int __count_leading_zero_32_helper(std::uint32_t value) {
-//     unsigned long index;
-//     if (_BitScanReverse(&index, value)) {
-//         return index;
-//     }
-//     else {
-//         return 32;
-//     }
-// }
-// #endif
+#endif
 
 BitmapAllocator::BitmapAllocator(Driver *drv, BlockIndex start_at)
     : BlockAllocator(drv, start_at), _count_block(Driver::BLOCK_SIZE)
@@ -195,7 +186,7 @@ BitmapAllocator::allocateBlocks(Length length, BlockIndex hint)
 
     // no enough space in the hinting section
     if (_bitmaps[hint_section].count <= BLOCK_PER_SECTION - length) {
-        if ((ret = allocateBlocksInSection(_bitmaps[hint_section], length, section_hint)) != std::numeric_limits<BlockIndex>::max()) {
+        if (allocateBlocksInSection(_bitmaps[hint_section], length, section_hint, ret)) {
             assert((ret + hint_section * BLOCK_PER_SECTION) > _start_at);
             return ret + hint_section * BLOCK_PER_SECTION;
         }
@@ -206,8 +197,7 @@ BitmapAllocator::allocateBlocks(Length length, BlockIndex hint)
         BlockIndex section = hint_section - 1;
         do {
             if ((_bitmaps[section].count <= BLOCK_PER_SECTION - length) &&
-                (ret = allocateBlocksInSection(_bitmaps[section], length, 0))
-                 != std::numeric_limits<BlockIndex>::max()) {
+                    allocateBlocksInSection(_bitmaps[section], length, 0, ret)) {
                 return ret + section * BLOCK_PER_SECTION;
             }
         } while(section--);
@@ -217,29 +207,27 @@ BitmapAllocator::allocateBlocks(Length length, BlockIndex hint)
     Length section_count = _bitmaps.size();
     for (BlockIndex section = hint_section + 1; section < section_count; ++section) {
         if ((_bitmaps[section].count <= BLOCK_PER_SECTION - length) &&
-            (ret = allocateBlocksInSection(_bitmaps[section], length, 0))
-            != std::numeric_limits<BlockIndex>::max()
-        ) {
+                allocateBlocksInSection(_bitmaps[section], length, 0, ret)) {
             return ret + section * BLOCK_PER_SECTION;
         }
     }
 
     // append a new section
     appendSection();
-    auto last_allocation_result = allocateBlocksInSection(_bitmaps.back(), length, 0);
-    assert(last_allocation_result != std::numeric_limits<BlockIndex>::max());
+    bool last_allocation_result = allocateBlocksInSection(_bitmaps.back(), length, 0, ret);
+    assert(last_allocation_result);
 
     return ret + (_bitmaps.size() - 1) * BLOCK_PER_SECTION;
 }
 
-BlockIndex
+bool
 BitmapAllocator::allocateBlocksInSection(
         Bitmap &bitmap,
         Length length,
-        BlockIndex section_hint
+        BlockIndex section_hint,
+        BlockIndex &result
     )
 {
-    BlockIndex result;
     BlockIndex hint_unit = section_hint / BLOCK_PER_UNIT;
     OperationUnit *unit_start = reinterpret_cast<OperationUnit*>(bitmap.bitmap.content());
     OperationUnit *unit_limit = unit_start + MAX_UNIT_COUNT;
@@ -256,7 +244,7 @@ BitmapAllocator::allocateBlocksInSection(
         if (leading_size >= length) {
             result = ((unit_ptr - unit_start) * BLOCK_PER_UNIT) + (32 - leading_size);
             setBitmapOnRange(bitmap, result, length);
-            return result;
+            return true;
         }
     }
 
@@ -272,13 +260,13 @@ BitmapAllocator::allocateBlocksInSection(
             if (leading_size >= length) {
                 result = ((unit_ptr - unit_start) * BLOCK_PER_UNIT) + (32 - leading_size);
                 setBitmapOnRange(bitmap, result, length);
-                return result;
+                return true;
             }
         }
     }
 
     // not found
-    return std::numeric_limits<BlockIndex>::max();
+    return false;
 }
 
 void
