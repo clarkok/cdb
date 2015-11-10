@@ -222,6 +222,18 @@ TEST_F(BTreeTest, UpperBoundButNotFound)
     }
 }
 
+TEST_F(BTreeTest, UpperBoundToEnd)
+{
+    for (int i = 0; i < TEST_NUMBER; ++i) {
+        auto iter = uut->insert(uut->makeKey(&i));
+        *reinterpret_cast<int *>(iter.getValue().content()) = i;
+    }
+
+    int upper_bound_not_exists = TEST_NUMBER + 1;
+    auto iter = uut->upperBound(uut->makeKey(&upper_bound_not_exists));
+    EXPECT_EQ(uut->end(), iter);
+}
+
 TEST_F(BTreeTest, ForEach)
 {
     for (int i = 0; i <= TEST_NUMBER; ++i) {

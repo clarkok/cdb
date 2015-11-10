@@ -84,7 +84,7 @@ namespace cdb {
         static std::set<std::string> getColumnNames(ConditionExpr *expr);
         static std::set<std::string> mergeColumnNamesInSchema(Schema *schema, std::set<std::string> &set);
         BlockIndex findIndex(std::string column_name);
-        BlockIndex removeIndex(std::string column_name);
+        void removeIndex(std::string column_name);
         Index findIndexByName(std::string name);
         Schema *buildSchemaForIndex(std::string column_name);
         View::Filter buildFilter(ConditionExpr *condition);

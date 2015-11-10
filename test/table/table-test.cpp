@@ -656,6 +656,8 @@ TEST_F(TableTest, dropIndex)
         );
         EXPECT_EQ(7, count);
     }
+
+    EXPECT_EQ(0, uut->end() - uut->begin());
 }
 
 TEST_F(TableTest, removeAll)

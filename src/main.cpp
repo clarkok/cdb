@@ -18,8 +18,19 @@ main(int, char**)
                 std::getline(std::cin, line);
                 sql += line + "\n";
             } while (std::cin && line.find(";") == std::string::npos);
-            parser.exec(sql);
-            sql = "";
+            try {
+                parser.exec(sql);
+            }
+            catch (const std::exception &e)
+            {
+                if (dynamic_cast<const ParserQuitingException*>(&e)) {
+                    throw ParserQuitingException();
+                }
+                std::cerr << e.what() << std::endl;
+            }
+            if (std::cin) {
+                sql = line.substr(line.find(";") + 1);
+            }
         }
     }
     catch (ParserQuitingException) {

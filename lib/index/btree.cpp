@@ -31,10 +31,12 @@ BTree::BTree(
 
 BTree::~BTree()
 {
-    // restore first & last leaf
-    auto *header = getHeaderFromNode(_root);
-    header->prev = _first_leaf;
-    header->next = _last_leaf;
+    if (_root.index()) {
+        // restore first & last leaf
+        auto *header = getHeaderFromNode(_root);
+        header->prev = _first_leaf;
+        header->next = _last_leaf;
+    }
 }
 
 void
@@ -82,6 +84,9 @@ BTree::Iterator
 BTree::upperBound(Key key)
 { 
     auto iter = lowerBound(key);
+    if (iter == end()) {
+        return iter;
+    }
     if (_equal(iter.getKey().start(), getPointerOfKey(key))) {
         return nextIterator(lowerBound(key));
     }

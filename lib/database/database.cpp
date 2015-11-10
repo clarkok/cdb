@@ -89,7 +89,7 @@ Database::open()
                 else {
                     // this is an index
                     auto column_name = Convert::toString(create_sql_col.getType(), create_sql);
-                    auto iter = factory_map.find(name);
+                    auto iter = factory_map.find(index_for);
                     iter->second.addIndex(column_name, data, name);
                 }
             }
@@ -260,7 +260,7 @@ std::string
 Database::indexFor(std::string name)
 {
     std::unique_ptr<Schema> schema(_root_table->buildSchemaFromColumnNames(
-                    std::vector<std::string>{"index_for"}));
+                    std::vector<std::string>{"id", "index_for"}));
 
     std::unique_ptr<ConditionExpr> condition(
                 new CompareExpr(
@@ -277,13 +277,17 @@ Database::indexFor(std::string name)
             condition.get(),
             [&](const ConstSlice &row)
             {
-                auto index_col = schema->getColumnById(0);
+                auto index_col = schema->getColumnByName("index_for");
                 result = Convert::toString(
                         index_col.getType(), 
                         index_col.getValue(row)
                         );
             }
         );
+
+    if (!result.length()) {
+        throw DatabaseIndexNotFoundException(name);
+    }
 
     return result;
 }

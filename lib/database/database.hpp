@@ -27,6 +27,17 @@ namespace cdb {
         { return ("Table " + name + " not found").c_str(); }
     };
 
+    struct DatabaseIndexNotFoundException : public std::exception
+    {
+        std::string name;
+        DatabaseIndexNotFoundException(std::string name)
+            : name(name)
+        { }
+
+        const char *what() const noexcept
+        { return ("Index " + name + " not found").c_str(); }
+    };
+
     class Database
     {
         std::unique_ptr<Driver> _driver;

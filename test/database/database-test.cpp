@@ -79,6 +79,8 @@ TEST_F(DatabaseTest, createTable)
             }
         );
     EXPECT_EQ(3, count);
+
+    table->createIndex("gpa", "gpaidx");
 }
 
 TEST_F(DatabaseTest, OpenAgain)
@@ -101,4 +103,30 @@ TEST_F(DatabaseTest, OpenAgain)
             }
         );
     EXPECT_EQ(3, count);
+
+    auto table_name = uut->indexFor("gpaidx");
+    EXPECT_EQ("test_table", table_name);
+    table = uut->getTableByName(table_name);
+    table->dropIndex("gpaidx");
+
+    uut.reset();
+    uut.reset(Database::Factory(TEST_PATH));
+
+    {
+            auto *table = uut->getTableByName("test_table");
+
+            int count = 0;
+            table->select(
+                    nullptr,
+                    nullptr,
+                    [&](ConstSlice row)
+                    {
+                        auto id_col = schema->getColumnById(0);
+                        auto id = Convert::toString(id_col.getType(), id_col.getValue(row));
+                        EXPECT_EQ(std::to_string(count), id);
+                        ++count;
+                    }
+                );
+            EXPECT_EQ(3, count);
+    }
 }

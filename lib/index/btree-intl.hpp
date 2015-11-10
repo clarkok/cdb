@@ -386,11 +386,16 @@ BTree::findInLeaf(Block &leaf, Key key)
         );
 
     if (iter.entry == entry_limit) {
-        return Iterator(
-                this,
-                _accesser->aquire(getHeaderFromNode(leaf)->next),
-                getFirstEntryOffset()
-            );
+        if (getHeaderFromNode(leaf)->next) {
+            return Iterator(
+                    this,
+                    _accesser->aquire(getHeaderFromNode(leaf)->next),
+                    getFirstEntryOffset()
+                );
+        }
+        else {
+            return end();
+        }
     }
     else {
         return Iterator(this, leaf, iter.entry - leaf.begin());

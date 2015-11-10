@@ -31,6 +31,14 @@ namespace cdb {
           >
     { };
 
+    template <typename T>
+    struct stmt
+        : pegtl::seq<
+            T,
+            token<pegtl::one<';'> >
+          >
+    { };
+
     struct integer
         : pegtl::plus<pegtl::digit>
     { };
@@ -134,39 +142,39 @@ namespace cdb {
     { };
 
     struct create_table_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("create") >,
             token<pegtl_istring_t("table") >,
             table_name,
             paren<column_decl_list >
-          >
+          > >
     { };
 
     struct drop_table_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("drop") >,
             token<pegtl_istring_t("table") >,
             table_name
-          >
+          > >
     { };
 
     struct create_index_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("create") >,
             token<pegtl_istring_t("index") >,
             index_name,
             token<pegtl_istring_t("on") >,
             table_name,
             paren<field_name >
-          >
+          > >
     { };
 
     struct drop_index_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("drop") >,
             token<pegtl_istring_t("index") >,
             index_name
-          >
+          > >
     { };
 
     struct select_column_name
@@ -206,42 +214,28 @@ namespace cdb {
           >
     { };
 
-    struct condition_and;
-
-    struct condition_and_act
+    struct condition_and
         : pegtl::seq<
             condition_compare,
-            token<pegtl_istring_t("and") >,
-            condition_and
-        >
-    { };
-
-    struct condition_and
-        : pegtl::sor<
-            condition_and_act,
-            condition_compare
-          >
-    { };
-
-    struct condition_or;
-
-    struct condition_or_act
-        : pegtl::seq<
-            condition_and,
-            token<pegtl_istring_t("or") >,
-            condition_or
+            pegtl::opt<
+                token<pegtl_istring_t("and") >,
+                condition_and
+            >
         >
     { };
 
     struct condition_or
-        : pegtl::sor<
-            condition_or_act,
-            condition_and
-          >
+        : pegtl::seq<
+            condition_and,
+            pegtl::opt<
+                token<pegtl_istring_t("or") >,
+                condition_or
+            >
+        >
     { };
 
     struct select_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("select")>,
             column_set,
             token<pegtl_istring_t("from")>,
@@ -250,7 +244,7 @@ namespace cdb {
                 token<pegtl_istring_t("where")>,
                 condition_or
             > >
-          >
+          > >
     { };
 
     struct insert_value
@@ -267,7 +261,7 @@ namespace cdb {
     { };
 
     struct insert_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("insert")>,
             token<pegtl_istring_t("into")>,
             table_name,
@@ -276,11 +270,11 @@ namespace cdb {
                 value_set,
                 token<pegtl::one<','> >
             >
-          >
+          > >
     { };
 
     struct delete_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("delete")>,
             token<pegtl_istring_t("from")>,
             table_name,
@@ -288,18 +282,18 @@ namespace cdb {
                 token<pegtl_istring_t("where")>,
                 condition_or
             > >
-          >
+          > >
     { };
 
     struct quit_stmt
-        : token<pegtl_istring_t("quit") >
+        : stmt<token<pegtl_istring_t("quit") > >
     { };
 
     struct exec_stmt
-        : pegtl::seq<
+        : stmt<pegtl::seq<
             token<pegtl_istring_t("execfile") >,
             token<string>
-          >
+          > >
     { };
 
     struct statment
@@ -320,14 +314,20 @@ namespace cdb {
     { };
 
     struct stmt_list
-        : pegtl::list<
-            statment,
-            token<pegtl::one<';'> >
+        : pegtl::star<
+            statment
           >
     { };
 
     struct ParseState
     {
+        enum class LastMatchCondition
+        {
+            COMPARE,
+            AND,
+            OR
+        };
+
         std::string integer;
         std::string float_;
         std::string string_;
@@ -340,6 +340,8 @@ namespace cdb {
         std::string compare_op;
         std::string value;
 
+        LastMatchCondition last_matched = LastMatchCondition::COMPARE;
+
         std::unique_ptr<Schema::Factory> schema_builder;
         std::unique_ptr<Table::RecordBuilder> record_builder;
         std::stack<std::unique_ptr<ConditionExpr> > condition_expr;
@@ -347,6 +349,7 @@ namespace cdb {
         std::vector<std::string> insert_value_set;
 
         Database *db;
+        Parser *parser;
     };
 
     template <typename Rule>
@@ -461,7 +464,7 @@ namespace cdb {
         apply(const pegtl::input &in, ParseState &state)
         { 
             std::cerr << "char_type_length" << in.string() << std::endl;
-            state.field_type = in.string();
+            state.field_type = std::to_string(std::stoi(in.string()) + 1);
         }
     };
 
@@ -485,6 +488,19 @@ namespace cdb {
             else {
                 state.schema_builder->addCharField(state.field_name, std::stoi(state.field_type));
             }
+        }
+    };
+
+    template <>
+    struct ParseAction<column_primary_decl>
+    {
+        static void
+        apply(const pegtl::input &, ParseState &state)
+        {
+            if (!state.schema_builder) {
+                throw SchemaColumnNotFoundException(state.field_name);
+            }
+            state.schema_builder->setPrimary(state.field_name);
         }
     };
 
@@ -523,6 +539,8 @@ namespace cdb {
         {
             std::cerr << "create index " << state.index_name << " on " 
                 << state.table_name << ":" << state.field_name << std::endl;
+            auto *table = state.db->getTableByName(state.table_name);
+            table->createIndex(state.field_name, state.index_name);
         }
     };
 
@@ -533,6 +551,9 @@ namespace cdb {
         apply(const pegtl::input &, ParseState &state)
         {
             std::cerr << "drop index " << state.index_name << std::endl;
+            auto table_name = state.db->indexFor(state.index_name);
+            auto *table = state.db->getTableByName(table_name);
+            table->dropIndex(state.index_name);
         }
     };
 
@@ -586,15 +607,22 @@ namespace cdb {
                         state.value
                     )
                 );
+
+            state.last_matched = ParseState::LastMatchCondition::COMPARE;
         }
     };
 
     template <>
-    struct ParseAction<condition_and_act>
+    struct ParseAction<condition_and>
     {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
+            if (state.last_matched == ParseState::LastMatchCondition::COMPARE) {
+                state.last_matched = ParseState::LastMatchCondition::AND;
+                return;
+            }
+
             auto a = state.condition_expr.top().release(); state.condition_expr.pop();
             auto b = state.condition_expr.top().release(); state.condition_expr.pop();
 
@@ -605,11 +633,15 @@ namespace cdb {
     };
 
     template <>
-    struct ParseAction<condition_or_act>
+    struct ParseAction<condition_or>
     {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
+            if (state.last_matched == ParseState::LastMatchCondition::AND) {
+                state.last_matched = ParseState::LastMatchCondition::OR;
+                return;
+            }
             auto a = state.condition_expr.top().release(); state.condition_expr.pop();
             auto b = state.condition_expr.top().release(); state.condition_expr.pop();
 
@@ -627,7 +659,6 @@ namespace cdb {
         {
             std::cerr << "select from " << state.table_name << std::endl;
             auto *table = state.db->getTableByName(state.table_name);
-            // auto schema = state.schema_builder->release();
             std::unique_ptr<Schema> schema;
             if (state.column_list.size()) {
                 schema.reset(table->buildSchemaFromColumnNames(state.column_list));
@@ -636,14 +667,14 @@ namespace cdb {
             else {
                 schema.reset(table->getSchema()->copy());
             }
-            auto condition = state.condition_expr.size() ? 
-                state.condition_expr.top().release() :
-                nullptr;
+            std::unique_ptr<ConditionExpr> condition(
+                    state.condition_expr.size() ? 
+                        state.condition_expr.top().release() :
+                        nullptr
+                );
             if (condition) {
                 state.condition_expr.pop();
-
-                ConditionDumpVisitor visitor(std::cerr);
-                condition->accept(&visitor);
+                condition.reset(table->optimizeCondition(condition.release()));
             }
 
             for (auto &field : *schema) {
@@ -653,7 +684,7 @@ namespace cdb {
 
             table->select(
                     schema.get(),
-                    condition,
+                    condition.get(),
                     [&](const ConstSlice &row)
                     {
                         auto length = schema->end() - schema->begin();
@@ -724,8 +755,19 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            state.condition_expr.pop();
             std::cerr << "delete from " << state.table_name << std::endl;
+            auto *table = state.db->getTableByName(state.table_name);
+            std::unique_ptr<ConditionExpr> condition(
+                    state.condition_expr.size() ? 
+                        state.condition_expr.top().release() :
+                        nullptr
+                );
+            if (condition) {
+                state.condition_expr.pop();
+                condition.reset(table->optimizeCondition(condition.release()));
+            }
+
+            table->erase(condition.get());
         }
     };
 
@@ -747,6 +789,7 @@ namespace cdb {
         apply(const pegtl::input &, ParseState &state)
         {
             std::cerr << "exec " << state.string_ << std::endl;
+            state.parser->exec_file(state.string_);
         }
     };
 }
@@ -757,5 +800,22 @@ Parser::exec(std::string sql)
     std::cerr << "exec" << std::endl;
     ParseState state;
     state.db = _db;
-    pegtl::parse<stmt_list, ParseAction, pegtl::tracer>(sql, "__TERMINAL__", state);
+    state.parser = this;
+    pegtl::parse<stmt_list, ParseAction>(sql, "__TERMINAL__", state);
+}
+
+void
+Parser::exec_file(std::string name)
+{
+    std::cerr << "exec" << std::endl;
+    ParseState state;
+    state.db = _db;
+    state.parser = this;
+
+    try { pegtl::file_parser file_parser(name);
+        ParseState new_state;
+        new_state.db = state.db;
+        file_parser.parse<stmt_list, ParseAction>(new_state);
+    }
+    catch (ParserQuitingException) {};
 }

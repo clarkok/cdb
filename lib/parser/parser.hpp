@@ -17,6 +17,7 @@ namespace cdb {
         { }
 
         void exec(std::string);
+        void exec_file(std::string);
     };
 }
 

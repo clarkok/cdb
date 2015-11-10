@@ -101,7 +101,7 @@ namespace cdb {
              */
             Iterator(BTree *owner, const Block &block, Length offset)
                 : _owner(owner), _block(block), _offset(offset)
-            { }
+            { assert(_block.index()); }
 
             // Copy constructor and copy assignment is disabled
             Iterator(const Iterator &) = delete;

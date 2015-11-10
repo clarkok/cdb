@@ -397,17 +397,16 @@ Table::findIndex(std::string column_name)
     return 0;
 }
 
-BlockIndex
+void
 Table::removeIndex(std::string column_name)
 {
     for (auto iter = _indices.begin(); iter != _indices.end(); ++iter) {
         if (iter->column_name == column_name) {
-            auto ret = iter->root;
             _indices.erase(iter);
-            return ret;
+            return;
         }
     }
-    return 0;
+    throw TableIndexNotFoundException("for " + column_name);
 }
 
 Table::Index
@@ -668,17 +667,17 @@ Table::dropIndex(std::string name)
 {
     auto index = findIndexByName(name);
     auto index_root = index.root;
-    if (index_root) {
-        std::unique_ptr<BTree> index_tree(
-                buildIndexBTree(
-                        index_root,
-                        buildSchemaForIndex(index.column_name)
-                )
-        );
+    std::unique_ptr<BTree> index_tree(
+            buildIndexBTree(
+                    index_root,
+                    buildSchemaForIndex(index.column_name)
+            )
+    );
 
-        index_tree->clean();
-        index_tree.reset();
-    }
+    index_tree->clean();
+    index_tree.reset();
+
+    removeIndex(index.column_name);
 }
 
 IndexView *
