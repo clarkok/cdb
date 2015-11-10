@@ -37,8 +37,8 @@ TEST(BufferTest, Iterator)
 
     EXPECT_EQ(std::strlen(TEST_STRING) + 1, uut.cend() - uut.cbegin());
     EXPECT_EQ(std::strlen(TEST_STRING) + 1, uut.end() - uut.begin());
-    EXPECT_EQ(0, std::strcmp(TEST_STRING, reinterpret_cast<const char*>(uut.cbegin())));
-    EXPECT_EQ(0, std::strcmp(TEST_STRING, reinterpret_cast<const char*>(uut.begin())));
+    EXPECT_EQ(0, std::strcmp(TEST_STRING, reinterpret_cast<const char*>(uut.cbegin().start_)));
+    EXPECT_EQ(0, std::strcmp(TEST_STRING, reinterpret_cast<const char*>(uut.begin().start_)));
 }
 
 TEST(BufferTest, OwnAPieceOfMemory)

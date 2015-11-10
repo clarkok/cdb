@@ -57,10 +57,12 @@ TEST(ConstSliceTest, Constructor)
 
     ConstSlice uut_by_buffer(buffer);
     EXPECT_EQ(TEST_LENGTH, uut_by_buffer.length());
+    EXPECT_EQ(buffer.content(), uut_by_buffer.content());
     EXPECT_EQ(0, std::strcmp(reinterpret_cast<const char*>(uut_by_buffer.content()), TEST_STRING));
 
     ConstSlice uut_by_slice(slice);
     EXPECT_EQ(TEST_LENGTH, uut_by_slice.length());
+    EXPECT_EQ(slice.content(), uut_by_slice.content());
     EXPECT_EQ(0, std::strcmp(reinterpret_cast<const char*>(uut_by_slice.content()), TEST_STRING));
 }
 

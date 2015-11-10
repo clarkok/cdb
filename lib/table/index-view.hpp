@@ -30,7 +30,7 @@ namespace cdb {
 
             virtual ConstSlice
             constSlice()
-            { return key_length ? ConstSlice(impl.getKey(), key_length) : impl.getValue(); }
+            { return key_length ? ConstSlice(impl.getKey().start(), key_length) : impl.getValue(); }
 
             virtual Slice
             slice()

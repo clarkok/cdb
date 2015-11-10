@@ -101,7 +101,7 @@ namespace cdb {
              */
             Iterator(BTree *owner, const Block &block, Length offset)
                 : _owner(owner), _block(block), _offset(offset)
-            { }
+            { assert(_block.index()); }
 
             // Copy constructor and copy assignment is disabled
             Iterator(const Iterator &) = delete;
@@ -112,9 +112,9 @@ namespace cdb {
              *
              * @return start byte of this entry
              */
-            inline Byte *
+            inline Slice::SliceIterator
             getEntry() const
-            { return _block.slice().content() + _offset; }
+            { return _block.slice().begin() + _offset; }
 
             friend class BTree;
         public:
@@ -147,7 +147,7 @@ namespace cdb {
             operator != (const Iterator &iter) const
             { return !this->operator==(iter); }
 
-            inline const Byte *
+            inline const Slice::SliceIterator
             getKey() const
             { return _owner->getKeyFromLeafEntry(getEntry()); }
 
@@ -259,18 +259,18 @@ namespace cdb {
         inline LeafMark *getMarkFromLeaf(Slice leaf);
         inline NodeHeader *getHeaderFromNode(Slice node);   /** for both leaf and non-leaf */
 
-        inline Byte *getFirstEntryInNode(Block &node);
-        inline Byte *getLimitEntryInNode(Block &node);
-        inline Byte *nextEntryInNode(Byte *entry);
-        inline Byte *prevEntryInNode(Byte *entry);
-        inline Byte *getEntryInNodeByIndex(Block &node, Length index);
-        inline Byte *getLastEntryInNode(Block &node);
+        inline Slice::SliceIterator getFirstEntryInNode(Block &node);
+        inline Slice::SliceIterator getLimitEntryInNode(Block &node);
+        inline Slice::SliceIterator nextEntryInNode(Slice::SliceIterator entry);
+        inline Slice::SliceIterator prevEntryInNode(Slice::SliceIterator entry);
+        inline Slice::SliceIterator getEntryInNodeByIndex(Block &node, Length index);
+        inline Slice::SliceIterator getLastEntryInNode(Block &node);
 
-        inline Byte *getFirstEntryInLeaf(Block &leaf);
-        inline Byte *getLimitEntryInLeaf(Block &leaf);
-        inline Byte *nextEntryInLeaf(Byte *entry);
-        inline Byte *prevEntryInLeaf(Byte *entry);
-        inline Byte *getEntryInLeafByIndex(Block &node, Length index);
+        inline Slice::SliceIterator getFirstEntryInLeaf(Block &leaf);
+        inline Slice::SliceIterator getLimitEntryInLeaf(Block &leaf);
+        inline Slice::SliceIterator nextEntryInLeaf(Slice::SliceIterator entry);
+        inline Slice::SliceIterator prevEntryInLeaf(Slice::SliceIterator entry);
+        inline Slice::SliceIterator getEntryInLeafByIndex(Block &node, Length index);
 
         /**
          * Find the needed block index in a node
@@ -373,15 +373,15 @@ namespace cdb {
          */
         inline Block newRoot(Key split_key, Block &before, Block &after);
 
-        inline BlockIndex *getIndexFromNodeEntry(Byte *entry);
+        inline BlockIndex *getIndexFromNodeEntry(Slice::SliceIterator entry);
 
-        inline Slice getValueFromLeafEntry(Byte *entry)
-        { return Slice(entry + _key_size, _value_size); }
+        inline Slice getValueFromLeafEntry(Slice::SliceIterator entry)
+        { return Slice(entry.start() + _key_size, _value_size); }
 
-        inline Byte* getKeyFromNodeEntry(Byte *entry)
+        inline Slice::SliceIterator getKeyFromNodeEntry(Slice::SliceIterator entry)
         { return entry; }
 
-        inline Byte* getKeyFromLeafEntry(Byte *entry)
+        inline Slice::SliceIterator getKeyFromLeafEntry(Slice::SliceIterator entry)
         { return entry; }
 
         inline Length getFirstEntryOffset();
@@ -651,6 +651,11 @@ namespace cdb {
          * Reset the whole tree
          */
         void reset();
+
+        /**
+         * Force initialize the whole tree
+         */
+        void init();
 
         /**
          * Remove the whole tree

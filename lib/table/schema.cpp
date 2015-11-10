@@ -48,6 +48,7 @@ Schema::getColumnByName(std::string name) const
 Schema::Column
 Schema::getColumnById(Field::ID id) const
 {
+    assert(static_cast<decltype(_fields.size())>(id) < _fields.size());
     std::size_t offset = 0;
     auto iter = _fields.begin();
     while (id--) {
@@ -68,6 +69,30 @@ Schema::copy() const
     ret->_fields = _fields;
     ret->_primary_field = _primary_field;
     return ret;
+}
+
+void
+Schema::serialize(Slice slice) const
+{
+    auto iter = slice.begin();
+    auto id = getPrimaryColumn().getField()->id;
+    *reinterpret_cast<int*>(iter.start()) = id;
+    iter += sizeof(int);
+    for (auto &field : _fields) {
+        std::copy(
+                field.name.cbegin(),
+                field.name.cend(),
+                iter
+            );
+        iter += field.name.length();
+        *iter++ = '\0';
+        *iter++ = static_cast<Byte>(field.type);
+        *reinterpret_cast<std::size_t*>(iter.start()) = field.length;
+        iter += sizeof(field.length);
+        *reinterpret_cast<int*>(iter.start()) = field.autoinc_value;
+        iter += sizeof(field.autoinc_value);
+    }
+    *iter = '\0';
 }
 
 Schema::Factory::Factory()
@@ -124,6 +149,14 @@ Schema::Factory::setPrimary(std::string name)
     return *this;
 }
 
+Schema::Factory &
+Schema::Factory::setAutoincValue(int value)
+{
+    auto primary_col = _schema->getPrimaryColumn();
+    primary_col.getField()->autoinc_value = value;
+    return *this;
+}
+
 void
 Schema::Factory::addField(Field::Type type, std::string name, std::size_t length)
 {
@@ -135,3 +168,38 @@ Schema::Factory::addField(Field::Type type, std::string name, std::size_t length
             0
     );
 }
+
+Schema *
+Schema::Factory::parse(ConstSlice slice)
+{
+    auto iter = slice.cbegin();
+    Schema::Factory builder;
+
+    std::string primary_name = "";
+
+    int primary_id = *reinterpret_cast<const int*>(iter.start());
+    iter += sizeof(int);
+
+    while (*iter) {
+        std::string name(reinterpret_cast<const char*>(iter.start()));
+        iter += name.length() + 1;
+        auto type = static_cast<Field::Type>(*iter++);
+        auto length = *reinterpret_cast<const std::size_t*>(iter.start());
+        iter += sizeof(length);
+        auto autoinc_value = *reinterpret_cast<const int*>(iter.start());
+        iter += sizeof(autoinc_value);
+
+        builder.addField(type, name, length);
+        // TODO set auto inc value
+        
+        if (0 == primary_id --) {
+            primary_name = name;
+        }
+    }
+
+    builder.setPrimary(primary_name);
+
+    return builder.release();
+}
+
+

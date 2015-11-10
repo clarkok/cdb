@@ -17,7 +17,7 @@ namespace cdb {
         { }
 
         virtual const char *
-        what() const _GLIBCXX_NOEXCEPT
+        what() const noexcept
         { return (name + " not found").c_str(); }
     };
 
@@ -79,7 +79,7 @@ namespace cdb {
 
             inline const Field *
             getField() const
-            { return &owner->_fields[field_id]; }
+            { return &owner->_fields.at(field_id); }
 
             inline Field::Type
             getType() const
@@ -165,6 +165,8 @@ namespace cdb {
          */
         Schema *copy() const;
 
+        void serialize(Slice slice) const;
+
         inline decltype(_fields.cbegin())
         begin() const
         { return _fields.cbegin(); }
@@ -188,6 +190,9 @@ namespace cdb {
             Factory &addIntegerField(std::string name);
             Factory &addTextField(std::string name);
             Factory &setPrimary(std::string name);
+            Factory &setAutoincValue(int value = 1);
+
+            static Schema *parse(ConstSlice slice);
         };
     };
 }
