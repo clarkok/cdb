@@ -8,6 +8,12 @@ namespace cdb {
     struct ParserQuitingException : public std::exception
     { };
 
+    struct ParserSyntaxErrorException : public std::exception
+    {
+        const char * what() const noexcept
+        { return "Syntax error"; }
+    };
+
     class Parser
     {
         Database *_db;

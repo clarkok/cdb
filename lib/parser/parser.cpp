@@ -214,9 +214,18 @@ namespace cdb {
           >
     { };
 
+    struct condition_or;
+
+    struct condition_subexpr
+        : paren<condition_or>
+    { };
+
     struct condition_and
         : pegtl::seq<
-            condition_compare,
+            pegtl::sor<
+                condition_subexpr,
+                condition_compare
+            >,
             pegtl::opt<
                 token<pegtl_istring_t("and") >,
                 condition_and
@@ -781,7 +790,10 @@ Parser::exec(std::string sql)
     ParseState state;
     state.db = _db;
     state.parser = this;
-    pegtl::parse<stmt_list, ParseAction>(sql, "__TERMINAL__", state);
+    auto result = pegtl::parse<stmt_list, ParseAction>(sql, "__TERMINAL__", state);
+    if (!result) {
+        throw ParserSyntaxErrorException();
+    }
 }
 
 void
@@ -791,10 +803,14 @@ Parser::exec_file(std::string name)
     state.db = _db;
     state.parser = this;
 
-    try { pegtl::file_parser file_parser(name);
+    try {
+        pegtl::file_parser file_parser(name);
         ParseState new_state;
         new_state.db = state.db;
-        file_parser.parse<stmt_list, ParseAction>(new_state);
+        auto result = file_parser.parse<stmt_list, ParseAction>(new_state);
+        if (!result) {
+            throw ParserSyntaxErrorException();
+        }
     }
     catch (ParserQuitingException) {};
 }

@@ -60,12 +60,27 @@ public:
     virtual void visit(CompareExpr *expr)
     {
         auto index_root = _owner->findIndex(expr->column_name);
+        Schema *index_schema;
+        std::unique_ptr<View> index_view;
+
         if (!index_root) {
-            _index_view = nullptr;
-            return;
+            if (expr->column_name == _primary_schema->getPrimaryColumn().getField()->name) {
+                index_schema = _owner->getSchema()->copy();
+                index_view.reset(_owner->buildDataView());
+            }
+            else {
+                _index_view = nullptr;
+                return;
+            }
+        }
+        else {
+            index_schema = _owner->buildSchemaForIndex(expr->column_name);
+            index_view.reset(new IndexView(
+                    index_schema,
+                    _owner->buildIndexBTree(index_root, index_schema)
+            ));
         }
 
-        Schema *index_schema = _owner->buildSchemaForIndex(expr->column_name);
         auto index_col = index_schema->getPrimaryColumn();
         auto index_type = index_col.getType();
         auto index_length = index_col.getField()->length;
@@ -73,11 +88,6 @@ public:
         auto primary_col = index_schema->getColumnById(1);
         auto primary_type = primary_col.getType();
         auto primary_length = primary_col.getField()->length;
-
-        std::unique_ptr<View> index_view(new IndexView(
-                index_schema,
-                _owner->buildIndexBTree(index_root, index_schema)
-        ));
 
         Buffer lower_key(index_schema->getRecordSize());
         Convert::fromString(

@@ -39,7 +39,7 @@ main(int, char**)
                 std::cerr << e.what() << std::endl << std::endl;
             }
             if (std::cin) {
-                sql = line.substr(line.find(";") + 1);
+                sql = "";
             }
         }
     }
