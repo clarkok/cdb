@@ -505,6 +505,7 @@ namespace cdb {
                     state.table_name,
                     schema.get()
                 );
+            state.db->updateRootTable();
         }
     };
 
@@ -515,6 +516,7 @@ namespace cdb {
         apply(const pegtl::input &, ParseState &state)
         {
             state.db->dropTable(state.table_name);
+            state.db->updateRootTable();
         }
     };
 
@@ -526,6 +528,7 @@ namespace cdb {
         {
             auto *table = state.db->getTableByName(state.table_name);
             table->createIndex(state.field_name, state.index_name);
+            state.db->updateRootTable();
         }
     };
 
@@ -538,6 +541,7 @@ namespace cdb {
             auto table_name = state.db->indexFor(state.index_name);
             auto *table = state.db->getTableByName(table_name);
             table->dropIndex(state.index_name);
+            state.db->updateRootTable();
         }
     };
 

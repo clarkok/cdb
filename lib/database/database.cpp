@@ -103,86 +103,7 @@ Database::open()
 
 void
 Database::close()
-{
-    _root_table->reset();
-    std::unique_ptr<Schema> root_schema(Table::getSchemaForRootTable());
-
-    auto id_col = root_schema->getColumnByName("id");
-    auto name_col = root_schema->getColumnByName("name");
-    auto data_col = root_schema->getColumnByName("data");
-    auto count_col = root_schema->getColumnByName("count");
-    auto index_for_col = root_schema->getColumnByName("index_for");
-    auto create_sql_col = root_schema->getColumnByName("create_sql");
-
-    std::unique_ptr<Table::RecordBuilder> builder(_root_table->getRecordBuilder(
-                {
-                    "id",
-                    "name",
-                    "data",
-                    "count",
-                    "index_for",
-                    "create_sql"
-                }
-            ));
-    Buffer insert_in_root(root_schema->getRecordSize());
-    int id = 0;
-    for (auto &table : _tables) {
-        *reinterpret_cast<int*>(id_col.getValue(insert_in_root).content()) = ++id;
-        Convert::fromString(
-                name_col.getType(),
-                name_col.getField()->length,
-                table->getName(),
-                name_col.getValue(insert_in_root)
-            );
-        *reinterpret_cast<int*>(data_col.getValue(insert_in_root).content()) = 
-            static_cast<int>(table->getRoot());
-        *reinterpret_cast<int*>(count_col.getValue(insert_in_root).content()) =
-            static_cast<int>(table->getCount());
-        Convert::fromString(
-                index_for_col.getType(),
-                index_for_col.getField()->length,
-                "",
-                index_for_col.getValue(insert_in_root)
-            );
-        table->getSchema()->serialize(create_sql_col.getValue(insert_in_root));
-
-        builder->addRow(insert_in_root);
-
-        for (auto &index : *table) {
-            *reinterpret_cast<int*>(id_col.getValue(insert_in_root).content()) = ++id;
-            Convert::fromString(
-                    name_col.getType(),
-                    name_col.getField()->length,
-                    index.name,
-                    name_col.getValue(insert_in_root)
-                );
-            *reinterpret_cast<int*>(data_col.getValue(insert_in_root).content()) = 
-                static_cast<int>(index.root);
-            *reinterpret_cast<int*>(count_col.getValue(insert_in_root).content()) =
-                static_cast<int>(table->getCount());
-            Convert::fromString(
-                    index_for_col.getType(),
-                    index_for_col.getField()->length,
-                    table->getName(),
-                    index_for_col.getValue(insert_in_root)
-                );
-            Convert::fromString(
-                    create_sql_col.getType(),
-                    create_sql_col.getField()->length,
-                    index.column_name,
-                    create_sql_col.getValue(insert_in_root)
-                );
-            builder->addRow(insert_in_root);
-        }
-    }
-
-    _root_table->insert(builder->getSchema(), builder->getRows());
-
-    auto header_block = _accesser->aquire(0);
-    auto *header = reinterpret_cast<DBHeader*>(header_block.content());
-    header->root_index = _root_table->getRoot();
-    header->root_count = _root_table->getCount();
-}
+{ updateRootTable(); }
 
 void
 Database::init()
@@ -291,6 +212,89 @@ Database::indexFor(std::string name)
     }
 
     return result;
+}
+
+void
+Database::updateRootTable()
+{
+    _root_table->reset();
+    std::unique_ptr<Schema> root_schema(Table::getSchemaForRootTable());
+
+    auto id_col = root_schema->getColumnByName("id");
+    auto name_col = root_schema->getColumnByName("name");
+    auto data_col = root_schema->getColumnByName("data");
+    auto count_col = root_schema->getColumnByName("count");
+    auto index_for_col = root_schema->getColumnByName("index_for");
+    auto create_sql_col = root_schema->getColumnByName("create_sql");
+
+    std::unique_ptr<Table::RecordBuilder> builder(_root_table->getRecordBuilder(
+                {
+                    "id",
+                    "name",
+                    "data",
+                    "count",
+                    "index_for",
+                    "create_sql"
+                }
+            ));
+    Buffer insert_in_root(root_schema->getRecordSize());
+    int id = 0;
+    for (auto &table : _tables) {
+        *reinterpret_cast<int*>(id_col.getValue(insert_in_root).content()) = ++id;
+        Convert::fromString(
+                name_col.getType(),
+                name_col.getField()->length,
+                table->getName(),
+                name_col.getValue(insert_in_root)
+            );
+        *reinterpret_cast<int*>(data_col.getValue(insert_in_root).content()) = 
+            static_cast<int>(table->getRoot());
+        *reinterpret_cast<int*>(count_col.getValue(insert_in_root).content()) =
+            static_cast<int>(table->getCount());
+        Convert::fromString(
+                index_for_col.getType(),
+                index_for_col.getField()->length,
+                "",
+                index_for_col.getValue(insert_in_root)
+            );
+        table->getSchema()->serialize(create_sql_col.getValue(insert_in_root));
+
+        builder->addRow(insert_in_root);
+
+        for (auto &index : *table) {
+            *reinterpret_cast<int*>(id_col.getValue(insert_in_root).content()) = ++id;
+            Convert::fromString(
+                    name_col.getType(),
+                    name_col.getField()->length,
+                    index.name,
+                    name_col.getValue(insert_in_root)
+                );
+            *reinterpret_cast<int*>(data_col.getValue(insert_in_root).content()) = 
+                static_cast<int>(index.root);
+            *reinterpret_cast<int*>(count_col.getValue(insert_in_root).content()) =
+                static_cast<int>(table->getCount());
+            Convert::fromString(
+                    index_for_col.getType(),
+                    index_for_col.getField()->length,
+                    table->getName(),
+                    index_for_col.getValue(insert_in_root)
+                );
+            Convert::fromString(
+                    create_sql_col.getType(),
+                    create_sql_col.getField()->length,
+                    index.column_name,
+                    create_sql_col.getValue(insert_in_root)
+                );
+            builder->addRow(insert_in_root);
+        }
+    }
+
+    _root_table->insert(builder->getSchema(), builder->getRows());
+
+    auto header_block = _accesser->aquire(0);
+    auto *header = reinterpret_cast<DBHeader*>(header_block.content());
+    header->root_index = _root_table->getRoot();
+    header->root_count = _root_table->getCount();
 }
 
 Database *

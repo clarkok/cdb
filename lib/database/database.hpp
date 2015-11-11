@@ -72,6 +72,7 @@ namespace cdb {
         Table *createTable(std::string name, Schema *schema);
         void dropTable(std::string name);
         std::string indexFor(std::string name);
+        void updateRootTable();
 
         static Database *Factory(std::string path);
     };

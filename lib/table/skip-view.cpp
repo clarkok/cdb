@@ -28,7 +28,6 @@ ModifiableView *
 SkipView::peek(Schema::Column col, const Byte *lower_bound, const Byte *upper_bound)
 {
     auto primary_col = _schema->getPrimaryColumn();
-    assert(primary_col.getType() == Schema::Field::Type::INTEGER);
 
     SkipTable *table = new SkipTable(
             0,
@@ -58,7 +57,6 @@ SkipView::intersect(Iterator b, Iterator e)
     auto primary_col = _schema->getColumnById(0);
     auto other_col = b.getSchema()->getColumnById(0);
 
-    assert(primary_col.getType() == Schema::Field::Type::INTEGER);
     assert(primary_col.getType() == other_col.getType());
 
     auto cmp = Comparator::getCompareFuncByTypeLT(primary_col.getType());
@@ -110,7 +108,6 @@ SkipView::join(Iterator b, Iterator e)
     auto other_col = b.getSchema()->getColumnById(0);
 
     assert(_schema->getRecordSize() == b.getSchema()->getRecordSize());
-    assert(primary_col.getType() == Schema::Field::Type::INTEGER);
     assert(primary_col.getType() == other_col.getType());
 
     auto cmp = Comparator::getCompareFuncByTypeLT(primary_col.getType());
