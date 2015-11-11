@@ -366,7 +366,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &in, ParseState &state)
         {
-            std::cerr << "integer" << in.string() << std::endl;
             state.value = state.integer = in.string();
         }
     };
@@ -377,7 +376,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &in, ParseState &state)
         { 
-            std::cerr << "float" << in.string() << std::endl;
             state.value = state.float_ = in.string();
         }
     };
@@ -388,7 +386,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &in, ParseState &state)
         { 
-            std::cerr << "string" << in.string() << std::endl;
             state.string_ = in.string();
             state.value = state.string_ = state.string_.substr(1, state.string_.length() - 2);
         }
@@ -408,7 +405,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         { 
-            std::cerr << "table_name" << state.id << std::endl;
             state.table_name = state.id;
         }
     };
@@ -419,7 +415,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         { 
-            std::cerr << "index_name" << state.id << std::endl;
             state.index_name = state.id;
         }
     };
@@ -430,7 +425,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "field_name" << state.id << std::endl;
             state.field_name = state.id;
         }
     };
@@ -439,9 +433,8 @@ namespace cdb {
     struct ParseAction<int_type>
     {
         static void
-        apply(const pegtl::input &in, ParseState &state)
+        apply(const pegtl::input &, ParseState &state)
         { 
-            std::cerr << "int_type" << in.string() << std::endl;
             state.field_type = "int";
         }
     };
@@ -450,9 +443,8 @@ namespace cdb {
     struct ParseAction<float_type>
     {
         static void
-        apply(const pegtl::input &in, ParseState &state)
+        apply(const pegtl::input &, ParseState &state)
         { 
-            std::cerr << "float_type" << in.string() << std::endl;
             state.field_type = "float";
         }
     };
@@ -463,7 +455,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &in, ParseState &state)
         { 
-            std::cerr << "char_type_length" << in.string() << std::endl;
             state.field_type = std::to_string(std::stoi(in.string()) + 1);
         }
     };
@@ -474,7 +465,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "column_decl" << std::endl;
             if (!state.schema_builder) {
                 state.schema_builder.reset(new Schema::Factory());
             }
@@ -511,8 +501,6 @@ namespace cdb {
         apply(const pegtl::input &, ParseState &state)
         {
             std::unique_ptr<Schema> schema(state.schema_builder->release());
-            std::cerr << "create table " << state.table_name 
-                << " size: " << schema->getRecordSize() << std::endl;
             state.db->createTable(
                     state.table_name,
                     schema.get()
@@ -526,7 +514,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "drop table " << state.table_name << std::endl;
             state.db->dropTable(state.table_name);
         }
     };
@@ -537,8 +524,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "create index " << state.index_name << " on " 
-                << state.table_name << ":" << state.field_name << std::endl;
             auto *table = state.db->getTableByName(state.table_name);
             table->createIndex(state.field_name, state.index_name);
         }
@@ -550,7 +535,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "drop index " << state.index_name << std::endl;
             auto table_name = state.db->indexFor(state.index_name);
             auto *table = state.db->getTableByName(table_name);
             table->dropIndex(state.index_name);
@@ -657,7 +641,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "select from " << state.table_name << std::endl;
             auto *table = state.db->getTableByName(state.table_name);
             std::unique_ptr<Schema> schema;
             if (state.column_list.size()) {
@@ -708,7 +691,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "Prepare for insert" << std::endl;
             auto *table = state.db->getTableByName(state.table_name);
             state.record_builder.reset(table->getRecordBuilder());
         }
@@ -730,7 +712,6 @@ namespace cdb {
         {
             state.record_builder->addRow();
             for (auto &value : state.insert_value_set) {
-                std::cerr << value << std::endl;
                 state.record_builder->addValue(value);
             }
             state.insert_value_set.clear();
@@ -743,7 +724,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "Insert into " << state.table_name << std::endl;
             auto *table = state.db->getTableByName(state.table_name);
             table->insert(state.record_builder->getSchema(), state.record_builder->getRows());
         }
@@ -755,7 +735,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "delete from " << state.table_name << std::endl;
             auto *table = state.db->getTableByName(state.table_name);
             std::unique_ptr<ConditionExpr> condition(
                     state.condition_expr.size() ? 
@@ -777,7 +756,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &)
         {
-            std::cout << "quiting." << std::endl;
             throw ParserQuitingException();
         }
     };
@@ -788,7 +766,6 @@ namespace cdb {
         static void
         apply(const pegtl::input &, ParseState &state)
         {
-            std::cerr << "exec " << state.string_ << std::endl;
             state.parser->exec_file(state.string_);
         }
     };
@@ -797,7 +774,6 @@ namespace cdb {
 void
 Parser::exec(std::string sql)
 {
-    std::cerr << "exec" << std::endl;
     ParseState state;
     state.db = _db;
     state.parser = this;
@@ -807,7 +783,6 @@ Parser::exec(std::string sql)
 void
 Parser::exec_file(std::string name)
 {
-    std::cerr << "exec" << std::endl;
     ParseState state;
     state.db = _db;
     state.parser = this;

@@ -54,7 +54,7 @@ CachedAccesser::findRecordByBlockIndexAndIncCount(BlockIndex index)
     assert(_record.size() != CACHE_MAX_BLOCK_COUNT);
 
     _record.emplace(_record.begin(), CacheBlock{1, 1, tag, Buffer(CACHE_BLOCK_SIZE)});
-    _drv->readBlocks(calcTagByBlockIndex(tag), BLOCK_PER_CACHE, _record.begin()->content);
+    _drv->readBlocks(calcIndexByTag(tag), BLOCK_PER_CACHE, _record.begin()->content);
     return _record.begin();
 }
 

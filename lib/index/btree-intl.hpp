@@ -495,37 +495,27 @@ BTree::Iterator
 BTree::insertInLeaf(Block &leaf, Key key)
 {
     auto *header = getHeaderFromNode(leaf);
-    auto current = getLimitEntryInLeaf(leaf);
-    auto insert_point = current;
     auto entry_start = getFirstEntryInLeaf(leaf);
+    auto entry_limit = getLimitEntryInLeaf(leaf);
 
-    if (current > entry_start) {
-        for (
-                current = prevEntryInLeaf(current); 
-                current >= entry_start;
-                    insert_point = current,
-                    current = prevEntryInLeaf(current)
-        ) {
-            if (_less(getKeyFromLeafEntry(current).start(), getPointerOfKey(key))) {
-                break;
+    auto iter = std::lower_bound(
+            LeafEntryIterator(entry_start, this),
+            LeafEntryIterator(entry_limit, this),
+            key,
+            [&] (const Key &a, const Key &b) {
+                return _less(getPointerOfKey(a), getPointerOfKey(b));
             }
-        }
+        );
 
-        if (
-                current >= entry_start && 
-                _equal(getKeyFromLeafEntry(current).start(), getPointerOfKey(key))
-        ) {
-            return Iterator(this, leaf, current - leaf.begin());
-        }
-    }
-    else {
-        insert_point = current;
+    if (iter.entry != entry_limit && 
+            _equal(getKeyFromLeafEntry(iter.entry).start(), getPointerOfKey(key))) {
+        throw BTreeDuplicateKeyException();
     }
 
     std::copy_backward(
-            insert_point,
-            getLimitEntryInLeaf(leaf),
-            nextEntryInLeaf(getLimitEntryInLeaf(leaf))
+            iter.entry,
+            entry_limit,
+            nextEntryInLeaf(entry_limit)
         );
 
     ++header->entry_count;
@@ -533,44 +523,41 @@ BTree::insertInLeaf(Block &leaf, Key key)
     std::copy(
             getPointerOfKey(key),
             getPointerOfKey(key) + _key_size,
-            getKeyFromLeafEntry(insert_point)
+            getKeyFromLeafEntry(iter.entry)
         );
 
-    return Iterator(this, leaf, insert_point - leaf.begin());
+    return Iterator(this, leaf, iter.entry - leaf.begin());
 }
 
 void
 BTree::insertInNode(Block &node, Key key, BlockIndex index)
 {
     auto *header = getHeaderFromNode(node);
-    auto current = getLimitEntryInNode(node);
-    auto insert_point = current;
     auto entry_start = getFirstEntryInNode(node);
+    auto entry_limit = getLimitEntryInNode(node);
 
-    for (
-            current = prevEntryInNode(current);
-            current >= entry_start;
-                insert_point = current,
-                current = prevEntryInNode(current)
-    ) {
-        if (_less(getKeyFromNodeEntry(current).start(), getPointerOfKey(key))) {
-            break;
-        }
-    }
+    auto iter = std::lower_bound(
+            NodeEntryIterator(entry_start, this),
+            NodeEntryIterator(entry_limit, this),
+            key,
+            [&] (const Key &a, const Key &b) {
+                return _less(getPointerOfKey(a), getPointerOfKey(b));
+            }
+        );
 
     std::copy_backward(
-            insert_point,
-            getLimitEntryInNode(node),
-            nextEntryInNode(getLimitEntryInNode(node))
+            iter.entry,
+            entry_limit,
+            nextEntryInNode(entry_limit)
         );
 
     std::copy(
             getPointerOfKey(key),
             getPointerOfKey(key) + _key_size,
-            getKeyFromNodeEntry(insert_point)
+            getKeyFromNodeEntry(iter.entry)
         );
 
-    *getIndexFromNodeEntry(insert_point) = index;
+    *getIndexFromNodeEntry(iter.entry) = index;
 
     ++header->entry_count;
 }

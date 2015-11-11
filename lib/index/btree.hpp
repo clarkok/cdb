@@ -6,6 +6,7 @@
 #include <stack>
 #include <iterator>
 #include <functional>
+#include <exception>
 
 #ifdef DB_TEST
 #include <gtest/gtest.h>
@@ -14,6 +15,12 @@
 #include "lib/driver/driver-accesser.hpp"
 
 namespace cdb {
+
+    struct BTreeDuplicateKeyException : std::exception
+    {
+        const char *what() const noexcept
+        { return "Duplicate key inserted"; }
+    };
 
     /**
      * BTree is actually a B+ tree.
